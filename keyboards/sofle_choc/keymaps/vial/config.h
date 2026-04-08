@@ -50,6 +50,8 @@
 
 #define SPLIT_TRANSACTION_IDS_USER BOOST_BRIGHTNESS_SYNC
 
+#define ENABLE_RGB_MATRIX_PASTEL_PULSE
+
 /* Sprint 1.3: Vial Dynamic Combo Support */
 #define VIAL_COMBO_ENTRIES 4
 

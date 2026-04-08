@@ -17,12 +17,22 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Build firmware
+      - name: Build firmware (Left)
         run: |
           git config --global --add safe.directory $(pwd)
-          qmk compile -kb sofle_choc -km vial
+          qmk compile -kb sofle_choc -km vial -e CONVERT_TO=promicro_rp2040 -e MASTER=LEFT
           mkdir -p dist
-          cp *.hex *.bin *.uf2 dist/ 2>/dev/null || true
+          [ -f sofle_choc_vial_promicro_rp2040.uf2 ] && mv sofle_choc_vial_promicro_rp2040.uf2 dist/sofle_choc_vial_left.uf2
+
+      - name: Build firmware (Right)
+        run: |
+          git config --global --add safe.directory $(pwd)
+          qmk compile -kb sofle_choc -km vial -e CONVERT_TO=promicro_rp2040 -e MASTER=RIGHT
+          mkdir -p dist
+          [ -f sofle_choc_vial_promicro_rp2040.uf2 ] && mv sofle_choc_vial_promicro_rp2040.uf2 dist/sofle_choc_vial_right.uf2
+
+      - name: Prepare Artifacts
+        run: |
           cp keyboards/sofle_choc/keymaps/vial/vial.json dist/
 
       - name: Upload artifacts

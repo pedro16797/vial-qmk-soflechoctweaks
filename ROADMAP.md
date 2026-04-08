@@ -1,4 +1,4 @@
-## Sprint 0: Setting Things Up [Upcoming]
+## Sprint 0: Setting Things Up [Completed]
 **Goal:** Set up the git ignore and make sure we have a clearly defined dist folder, set up a GitHub action to autonomously build the necessary files to flash a sofle-choc keyboard.
 
 ## Sprint 1: Core Logic & Hardware Configuration [Pending]

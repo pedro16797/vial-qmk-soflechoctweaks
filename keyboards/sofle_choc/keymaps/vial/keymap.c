@@ -30,11 +30,11 @@ enum layers {
  * TD(0) and TD(1) in the keymap are placeholders for these dynamic entries.
  */
 
-const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
 [_QWERTY] = LAYOUT(
     KC_ESC,   RALT(KC_1), RALT(KC_2), RALT(KC_3), LSFT(KC_6), RALT(KC_E),                       KC_NUBS, LSFT(KC_NUBS), KC_PSLS, LSFT(KC_1), LSFT(KC_MINUS), KC_MPLY,
     KC_TAB,   KC_Q,       KC_W,       KC_E,       KC_R,       KC_T,                             KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_BSPC,
-    KC_CAPS,  KC_A,       KC_S,       KC_D,       KC_F,       KC_G,                             KC_H,    KC_J,    KC_K,    KC_L,    KC_SCOLON, KC_ENT,
+    KC_CAPS,  KC_A,       KC_S,       KC_D,       KC_F,       KC_G,                             KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN,   KC_ENT,
     KC_LSFT,  KC_Z,       KC_X,       KC_C,       KC_V,       KC_B,    KC_MUTE,   RGB_TOG,      KC_N,    KC_M,    KC_COMMA, KC_DOT, KC_SLSH, KC_QUOT,
                       KC_LGUI, KC_LALT, KC_LCTL, KC_SPACE, MO(_LOWER),   KC_SPACE, MO(_RAISE), KC_PGUP, KC_DEL, TD(1)
 ),
@@ -67,7 +67,7 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 }
 
 #if defined(ENCODER_MAP_ENABLE)
-const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
+const uint16_t PROGMEM encoder_map[4][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_QWERTY] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_WH_D, KC_WH_U) },
     [_LOWER]  = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS), ENCODER_CCW_CW(KC_WH_L, KC_WH_R) },
     [_RAISE]  = { ENCODER_CCW_CW(KC_TRNS, KC_TRNS), ENCODER_CCW_CW(KC_WH_L, KC_WH_R) },

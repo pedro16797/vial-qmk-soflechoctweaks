@@ -130,7 +130,7 @@ void matrix_scan_user(void) {
     static pulse_state_t last_pulse_state = {0, 0, 0};
 
     if (is_keyboard_master()) {
-        if (timer_elapsed32(decay_timer) > 30) {
+        if (timer_elapsed32(decay_timer) > 15) {
             decay_timer = timer_read32();
             if (pulse_state.boost >= 1) {
                 pulse_state.boost -= 1;

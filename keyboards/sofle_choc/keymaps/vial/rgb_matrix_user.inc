@@ -17,7 +17,7 @@ bool pastel_pulse(effect_params_t* params) {
 
     uint8_t global_v = rgb_matrix_get_val();
     uint8_t global_s = rgb_matrix_get_sat();
-    uint32_t time = timer_read32() / 128;
+    uint32_t time = timer_read32() / 16; // Fast hue animation
 
     for (uint8_t i = led_min; i < led_max; i++) {
         RGB_MATRIX_TEST_LED_FLAGS();
@@ -29,21 +29,18 @@ bool pastel_pulse(effect_params_t* params) {
         uint16_t dist = (uint16_t)((abs(dx) + abs(dy)) * 2 / 3);
 
         uint16_t local_boost = 0;
-        // Tight radius: boost only within distance 25
-        if (pulse_state.boost > 0 && dist < 25) {
-            local_boost = pulse_state.boost * (25 - dist) / 25;
+        // Very Tight radius: only direct neighbors (radius 20)
+        if (pulse_state.boost > 0 && dist < 20) {
+            local_boost = pulse_state.boost * (20 - dist) / 20;
         }
 
         // Base brightness 127 + local_boost
         uint16_t v_total = 127 + local_boost;
         if (v_total > 255) v_total = 255;
-
-        // Scale by global brightness
         v_total = (v_total * global_v) / 255;
 
-        // Saturation boost: baseline 70, boosting up based on local_boost
-        // We also respect global saturation
-        uint16_t s_total = 70 + (local_boost / 2);
+        // Saturation baseline 127 (half) + boost to full
+        uint16_t s_total = 127 + local_boost;
         if (s_total > 255) s_total = 255;
         s_total = (s_total * global_s) / 255;
 

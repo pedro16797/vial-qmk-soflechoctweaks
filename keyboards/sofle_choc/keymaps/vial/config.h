@@ -44,3 +44,14 @@
 #define RGB_MATRIX_KEYPRESSES
 
 #define BACKLIGHT_BREATHING
+
+/* Sprint 1.1: smoother precise dial rotation */
+#define ENCODER_RESOLUTION 4
+
+/* Sprint 1.3: Vial Dynamic Combo Support */
+#define VIAL_COMBO_ENTRIES 4
+
+/* Vial Dynamic Tap Dance Support */
+#define VIAL_TAP_DANCE_ENTRIES 2
+
+#define TAPPING_TERM 200

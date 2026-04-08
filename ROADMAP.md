@@ -1,7 +1,7 @@
 ## Sprint 0: Setting Things Up [Completed]
 **Goal:** Set up the git ignore and make sure we have a clearly defined dist folder, set up a GitHub action to autonomously build the necessary files to flash a sofle-choc keyboard.
 
-## Sprint 1: Core Logic & Hardware Configuration [Pending]
+## Sprint 1: Core Logic & Hardware Configuration [Completed]
 **Goal:** Establish the foundational hardware behaviors, split communication, and critical keymap logic.
 
 * **1.1 Define Encoder Resolution:**
@@ -13,7 +13,7 @@
     * Modify `config.h` to add `#define COMBO_COUNT 1`.
     * Modify `keymap.c` to define the combo array and struct for `MO(1) + MO(2) = MO(3)`.
 
-## Sprint 2: The "Pastel Pulse" RGB Engine [Pending]
+## Sprint 2: The "Pastel Pulse" RGB Engine [Upcoming]
 **Goal:** Implement the custom reactive lighting physics engine with additive brightness and a top-center radial origin.
 
 * **2.1 Enable RGB Features:**

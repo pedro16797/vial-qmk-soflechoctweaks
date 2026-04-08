@@ -48,7 +48,7 @@
 /* Sprint 1.1: smoother precise dial rotation */
 #define ENCODER_RESOLUTION 4
 
-/* Sprint 1.3: Vial Dynamic Combo Support (Replaces static COMBO_COUNT) */
+/* Sprint 1.3: Vial Dynamic Combo Support */
 #define VIAL_COMBO_ENTRIES 4
 
 /* Vial Dynamic Tap Dance Support */

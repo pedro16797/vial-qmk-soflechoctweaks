@@ -13,7 +13,7 @@
     * Modify `config.h` to add `#define COMBO_COUNT 1`.
     * Modify `keymap.c` to define the combo array and struct for `MO(1) + MO(2) = MO(3)`.
 
-## Sprint 2: The "Pastel Pulse" RGB Engine [Upcoming]
+## Sprint 2: The "Pastel Pulse" RGB Engine [Completed]
 **Goal:** Implement the custom reactive lighting physics engine with additive brightness and a top-center radial origin.
 
 * **2.1 Enable RGB Features:**

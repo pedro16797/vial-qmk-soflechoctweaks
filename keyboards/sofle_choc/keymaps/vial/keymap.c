@@ -78,6 +78,33 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     return update_tri_layer_state(state, _LOWER, _RAISE, _ADJUST);
 }
 
+/* Sprint 2.2: Brightness Buffer */
+uint16_t boost_brightness = 0;
+
+/* Sprint 2.3: Additive "Boost" Logic */
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        boost_brightness += 51;
+        if (boost_brightness > 255) {
+            boost_brightness = 255;
+        }
+    }
+    return true;
+}
+
+/* Sprint 2.4: Linear Decay Math */
+void matrix_scan_user(void) {
+    static uint32_t decay_timer = 0;
+    if (timer_elapsed32(decay_timer) > 10) {
+        decay_timer = timer_read32();
+        if (boost_brightness >= 5) {
+            boost_brightness -= 5;
+        } else {
+            boost_brightness = 0;
+        }
+    }
+}
+
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[4][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_QWERTY] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_WH_D, KC_WH_U) },

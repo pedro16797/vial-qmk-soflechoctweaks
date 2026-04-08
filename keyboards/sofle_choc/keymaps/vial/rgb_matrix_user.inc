@@ -12,6 +12,8 @@ bool pastel_pulse(effect_params_t* params) {
     uint8_t origin_x = 112;
     uint8_t origin_y = 0;
 
+    uint8_t global_v = rgb_matrix_get_val();
+
     for (uint8_t i = led_min; i < led_max; i++) {
         RGB_MATRIX_TEST_LED_FLAGS();
 
@@ -31,6 +33,9 @@ bool pastel_pulse(effect_params_t* params) {
         uint16_t v_total = 127 + boost_brightness;
         if (v_total > 255) v_total = 255;
 
+        // Scale by global brightness
+        v_total = (v_total * global_v) / 255;
+
         // Pastel characteristics: High Value, Low Saturation
         uint8_t hue = (uint8_t)(dist + (timer_read32() / 64));
         uint8_t sat = 100;
@@ -40,7 +45,7 @@ bool pastel_pulse(effect_params_t* params) {
         RGB rgb = hsv_to_rgb(hsv);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);
     }
-    return led_max < DRIVER_LED_TOTAL;
+    return led_max < RGB_MATRIX_LED_COUNT;
 }
 
 #endif // RGB_MATRIX_CUSTOM_EFFECT_IMPLS

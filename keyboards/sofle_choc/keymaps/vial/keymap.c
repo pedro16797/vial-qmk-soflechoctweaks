@@ -81,6 +81,16 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 /* Sprint 2.2: Brightness Buffer */
 uint16_t boost_brightness = 0;
 
+void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* initiator2target_buffer, uint8_t target2initiator_length, void* target2initiator_buffer) {
+    if (initiator2target_length == sizeof(boost_brightness)) {
+        memcpy(&boost_brightness, initiator2target_buffer, sizeof(boost_brightness));
+    }
+}
+
+void keyboard_post_init_user(void) {
+    transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+}
+
 /* Sprint 2.3: Additive "Boost" Logic */
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
@@ -95,12 +105,22 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 /* Sprint 2.4: Linear Decay Math */
 void matrix_scan_user(void) {
     static uint32_t decay_timer = 0;
-    if (timer_elapsed32(decay_timer) > 10) {
-        decay_timer = timer_read32();
-        if (boost_brightness >= 5) {
-            boost_brightness -= 5;
-        } else {
-            boost_brightness = 0;
+    static uint16_t last_boost_brightness = 0;
+
+    if (is_keyboard_master()) {
+        if (timer_elapsed32(decay_timer) > 10) {
+            decay_timer = timer_read32();
+            if (boost_brightness >= 5) {
+                boost_brightness -= 5;
+            } else {
+                boost_brightness = 0;
+            }
+        }
+
+        if (boost_brightness != last_boost_brightness) {
+            if (transaction_rpc_send(BOOST_BRIGHTNESS_SYNC, sizeof(boost_brightness), &boost_brightness)) {
+                last_boost_brightness = boost_brightness;
+            }
         }
     }
 }

@@ -48,6 +48,8 @@
 /* Sprint 1.1: smoother precise dial rotation */
 #define ENCODER_RESOLUTION 4
 
+#define SPLIT_TRANSACTION_IDS_USER BOOST_BRIGHTNESS_SYNC
+
 /* Sprint 1.3: Vial Dynamic Combo Support */
 #define VIAL_COMBO_ENTRIES 4
 

@@ -16,7 +16,8 @@ bool pastel_pulse(effect_params_t* params) {
     RGB_MATRIX_USE_LIMITS(led_min, led_max);
 
     uint8_t global_v = rgb_matrix_get_val();
-    uint32_t time = timer_read32() / 64;
+    uint8_t global_s = rgb_matrix_get_sat();
+    uint32_t time = timer_read32() / 128;
 
     for (uint8_t i = led_min; i < led_max; i++) {
         RGB_MATRIX_TEST_LED_FLAGS();
@@ -28,8 +29,9 @@ bool pastel_pulse(effect_params_t* params) {
         uint16_t dist = (uint16_t)((abs(dx) + abs(dy)) * 2 / 3);
 
         uint16_t local_boost = 0;
-        if (pulse_state.boost > 0 && dist < 128) {
-            local_boost = pulse_state.boost * (128 - dist) / 128;
+        // Tight radius: boost only within distance 25
+        if (pulse_state.boost > 0 && dist < 25) {
+            local_boost = pulse_state.boost * (25 - dist) / 25;
         }
 
         // Base brightness 127 + local_boost
@@ -39,11 +41,14 @@ bool pastel_pulse(effect_params_t* params) {
         // Scale by global brightness
         v_total = (v_total * global_v) / 255;
 
-        // Use a consistent global hue that drifts with time,
-        // and only slightly vary it by distance from the PRESS (not global coordinates)
-        // to avoid whole-keyboard color jumping when origin changes.
-        uint8_t hue = (uint8_t)(time + (dist / 8));
-        uint8_t sat = 100;
+        // Saturation boost: baseline 70, boosting up based on local_boost
+        // We also respect global saturation
+        uint16_t s_total = 70 + (local_boost / 2);
+        if (s_total > 255) s_total = 255;
+        s_total = (s_total * global_s) / 255;
+
+        uint8_t hue = (uint8_t)(time + (dist / 4));
+        uint8_t sat = (uint8_t)s_total;
         uint8_t val = (uint8_t)v_total;
 
         HSV hsv = {hue, sat, val};

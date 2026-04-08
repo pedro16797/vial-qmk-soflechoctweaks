@@ -20,8 +20,8 @@
 #    include "quantum/split_common/transactions.h"
 #endif
 
-#ifndef BOOST_BRIGHTNESS_SYNC
-#    define BOOST_BRIGHTNESS_SYNC BOOST_BRIGHTNESS_SYNC
+#ifdef RGB_MATRIX_ENABLE
+#    include "rgb_matrix.h"
 #endif
 
 enum layers {
@@ -115,8 +115,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
 
         // Capture coordinates of the pressed key
-        uint8_t led_index;
-        if (rgb_matrix_map_row_column_to_led(record->event.key.row, record->event.key.col, &led_index)) {
+        uint8_t led_index = g_led_config.matrix[record->event.key.row][record->event.key.col];
+        if (led_index != NO_LED) {
             pulse_state.x = g_led_config.point[led_index].x;
             pulse_state.y = g_led_config.point[led_index].y;
         }
@@ -130,10 +130,10 @@ void matrix_scan_user(void) {
     static pulse_state_t last_pulse_state = {0, 0, 0};
 
     if (is_keyboard_master()) {
-        if (timer_elapsed32(decay_timer) > 10) {
+        if (timer_elapsed32(decay_timer) > 30) {
             decay_timer = timer_read32();
-            if (pulse_state.boost >= 2) {
-                pulse_state.boost -= 2;
+            if (pulse_state.boost >= 1) {
+                pulse_state.boost -= 1;
             } else {
                 pulse_state.boost = 0;
             }

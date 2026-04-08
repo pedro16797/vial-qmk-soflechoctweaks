@@ -70,21 +70,21 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_TAB,   KC_Q,       KC_W,       KC_E,       KC_R,       KC_T,                             KC_Y,            KC_U,                 KC_I,        KC_O,       KC_P,           KC_BSPC,
     KC_CAPS,  KC_A,       KC_S,       KC_D,       KC_F,       KC_G,                             KC_H,            KC_J,                 KC_K,        KC_L,       KC_SCLN,        KC_ENT,
     KC_LSFT,  KC_Z,       KC_X,       KC_C,       KC_V,       KC_B,    KC_MUTE,   RGB_TOG,      KC_N,            KC_M,                 KC_COMMA,    KC_DOT,     KC_SLASH,       KC_QUOT,
-                      KC_LGUI, KC_LALT, KC_LCTRL, KC_SPACE, MO(_LOWER),   TD(1), KC_PGUP, KC_DEL, KC_SPACE, MO(_RAISE)
+                      KC_LGUI, KC_LALT, KC_LCTL, KC_SPACE, MO(_LOWER),   MO(_RAISE), KC_SPACE, KC_DEL, KC_PGUP, TD(1)
 ),
 [_LOWER] = LAYOUT(
     KC_TRNS,  LSFT(KC_3), KC_GRV,     RALT(KC_4), RALT(KC_6), LSFT(KC_4),                       RALT(KC_LBRC),   RALT(KC_RBRC),        RALT(KC_GRAVE), KC_EQL,     LSFT(KC_EQL),   KC_TRNS,
     LALT(KC_TAB), KC_KP_1, KC_KP_2,   KC_KP_3,    KC_KP_ASTERISK, KC_KP_SLASH,                  LSFT(KC_8),      LSFT(KC_9),           KC_UP,          LSFT(KC_2), KC_MINS,        KC_TRNS,
     KC_TRNS,  KC_KP_4,    KC_KP_5,    KC_KP_6,    KC_KP_PLUS, KC_KP_MINUS,                      KC_HOME,         KC_LEFT,              KC_DOWN,        KC_RIGHT,   KC_END,         KC_TRNS,
-    KC_RSHIFT, KC_KP_7,   KC_KP_8,    KC_KP_9,    KC_KP_DOT,  LSFT(KC_0), KC_TRNS,   KC_TRNS,   RALT(KC_QUOT),   RALT(KC_BSLS),        LSFT(KC_COMMA), LSFT(KC_DOT), LSFT(KC_SLASH), KC_LBRC,
-                      KC_KP_0, LSFT(KC_5), LSFT(KC_LBRACKET), KC_ENT, KC_TRNS,   KC_TRNS, KC_PGDN, KC_INS, KC_TRNS, KC_TRNS
+    KC_RSHIFT, KC_KP_7,   KC_KP_8,    KC_KP_9,    KC_KP_DOT,  LSFT(KC_0), KC_TRNS,   KC_TRNS,   RALT(KC_QUOT),   RALT(KC_BSLS),        LSFT(KC_COMMA), LSFT(KC_DOT), LSFT(KC_SLSH), KC_LBRC,
+                      KC_KP_0, LSFT(KC_5), LSFT(KC_LBRACKET), KC_ENT, KC_TRNS,   KC_TRNS, KC_TRNS, KC_INS, KC_PGDN, KC_TRNS
 ),
 [_RAISE] = LAYOUT(
     KC_TRNS,  LSFT(KC_3), KC_GRV,     RALT(KC_4), RALT(KC_6), LSFT(KC_4),                       RALT(KC_LBRC),   RALT(KC_RBRC),        RALT(KC_GRAVE), KC_EQL,     LSFT(KC_EQL),   KC_TRNS,
     LALT(KC_TAB), KC_KP_1, KC_KP_2,   KC_KP_3,    KC_KP_ASTERISK, KC_KP_SLASH,                  LSFT(KC_8),      LSFT(KC_9),           KC_UP,          LSFT(KC_2), KC_MINS,        KC_TRNS,
     KC_TRNS,  KC_KP_4,    KC_KP_5,    KC_KP_6,    KC_KP_PLUS, KC_KP_MINUS,                      KC_HOME,         KC_LEFT,              KC_DOWN,        KC_RIGHT,   KC_END,         KC_TRNS,
-    KC_RSHIFT, KC_KP_7,   KC_KP_8,    KC_KP_9,    KC_KP_DOT,  LSFT(KC_0), KC_TRNS,   KC_TRNS,   RALT(KC_QUOT),   RALT(KC_BSLS),        LSFT(KC_COMMA), LSFT(KC_DOT), LSFT(KC_SLASH), KC_LBRC,
-                      KC_KP_0, LSFT(KC_5), LSFT(KC_LBRACKET), KC_ENT, KC_TRNS,   KC_TRNS, KC_PGDN, KC_INS, KC_TRNS, KC_TRNS
+    KC_RSHIFT, KC_KP_7,   KC_KP_8,    KC_KP_9,    KC_KP_DOT,  LSFT(KC_0), KC_TRNS,   KC_TRNS,   RALT(KC_QUOT),   RALT(KC_BSLS),        LSFT(KC_COMMA), LSFT(KC_DOT), LSFT(KC_SLSH), KC_LBRC,
+                      KC_KP_0, LSFT(KC_5), LSFT(KC_LBRACKET), KC_ENT, KC_TRNS,   KC_TRNS, KC_TRNS, KC_INS, KC_PGDN, KC_TRNS
 ),
 [_ADJUST] = LAYOUT(
     KC_TRNS,  KC_TRNS,    KC_TRNS,    KC_TRNS,    KC_TRNS,    KC_TRNS,                          KC_TRNS,  KC_TRNS,        KC_TRNS,    KC_TRNS,      KC_TRNS,              KC_TRNS,
@@ -98,12 +98,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 layer_state_t layer_state_set_user(layer_state_t state) {
     return update_tri_layer_state(state, _LOWER, _RAISE, _ADJUST);
 }
-
-const uint16_t sc_combo[] = {KC_S, KC_C, COMBO_END};
-
-combo_t key_combos[] = {
-    COMBO(sc_combo, KC_BSLASH),
-};
 
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {

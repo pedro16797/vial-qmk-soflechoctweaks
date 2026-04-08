@@ -17,7 +17,11 @@
 #include <string.h>
 
 #ifdef SPLIT_KEYBOARD
-#    include "transactions.h"
+#    include "quantum/split_common/transactions.h"
+#endif
+
+#ifndef BOOST_BRIGHTNESS_SYNC
+#    define BOOST_BRIGHTNESS_SYNC BOOST_BRIGHTNESS_SYNC
 #endif
 
 enum layers {
@@ -136,7 +140,7 @@ void matrix_scan_user(void) {
         }
 
         if (memcmp(&pulse_state, &last_pulse_state, sizeof(pulse_state)) != 0) {
-            if (transaction_rpc_send(BOOST_BRIGHTNESS_SYNC, sizeof(pulse_state), &pulse_state)) {
+            if (transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(pulse_state), &pulse_state, 0, NULL)) {
                 memcpy(&last_pulse_state, &pulse_state, sizeof(pulse_state));
             }
         }

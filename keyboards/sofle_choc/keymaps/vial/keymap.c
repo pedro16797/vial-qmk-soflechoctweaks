@@ -115,7 +115,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
 
         // Capture coordinates of the pressed key
-        uint8_t led_index = g_led_config.matrix[record->event.key.row][record->event.key.col];
+        uint8_t led_index = g_led_config.matrix_co[record->event.key.row][record->event.key.col];
         if (led_index != NO_LED) {
             pulse_state.x = g_led_config.point[led_index].x;
             pulse_state.y = g_led_config.point[led_index].y;

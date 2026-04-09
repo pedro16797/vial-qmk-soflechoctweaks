@@ -134,6 +134,8 @@ void keyboard_post_init_user(void) {
 /* Sprint 2.3: Additive "Boost" Logic */
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
+        // Run splash on both halves to ensure local responsiveness if master,
+        // but slave only splashes when told by master via RPC.
         if (is_keyboard_master()) {
             splash_boost(record->event.key.row, record->event.key.col);
             key_hit_t hit = {record->event.key.row, record->event.key.col};

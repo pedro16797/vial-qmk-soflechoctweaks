@@ -1,3 +1,5 @@
+#ifdef ENABLE_RGB_MATRIX_PASTEL_PULSE
+#define RGB_MATRIX_EFFECT_PASTEL_PULSE
 RGB_MATRIX_EFFECT(pastel_pulse)
 
 #ifdef RGB_MATRIX_CUSTOM_EFFECT_IMPLS
@@ -74,3 +76,4 @@ bool pastel_pulse(effect_params_t* params) {
 }
 
 #endif // RGB_MATRIX_CUSTOM_EFFECT_IMPLS
+#endif // ENABLE_RGB_MATRIX_PASTEL_PULSE

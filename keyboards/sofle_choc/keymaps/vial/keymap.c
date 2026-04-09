@@ -14,6 +14,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include QMK_KEYBOARD_H
+#include <string.h>
+#include <stdlib.h>
+
+#ifdef SPLIT_KEYBOARD
+#    include "quantum/split_common/transactions.h"
+#endif
+
+#ifdef RGB_MATRIX_ENABLE
+#    include "rgb_matrix.h"
+#endif
 
 enum layers {
     _QWERTY = 0,
@@ -76,6 +86,88 @@ const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
 layer_state_t layer_state_set_user(layer_state_t state) {
     /* Sprint 1.3: Tri-layer logic for MO(_LOWER) + MO(_RAISE) = MO(_ADJUST) */
     return update_tri_layer_state(state, _LOWER, _RAISE, _ADJUST);
+}
+
+/* Sprint 2.2: Brightness Buffer */
+// led_boost stores the actual brightness/saturation scale, baseline 127
+uint8_t led_boost[RGB_MATRIX_LED_COUNT];
+uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
+uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
+
+typedef struct {
+    uint8_t row;
+    uint8_t col;
+} key_hit_t;
+
+void apply_key_boost(uint8_t row, uint8_t col) {
+    uint8_t led_index = g_led_config.matrix_co[row][col];
+    if (led_index == NO_LED) return;
+
+    if (led_boost[led_index] + 32 > 255) {
+        led_boost[led_index] = 255;
+    } else {
+        led_boost[led_index] += 32;
+    }
+}
+
+void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* initiator2target_buffer, uint8_t target2initiator_length, void* target2initiator_buffer) {
+    if (initiator2target_length == sizeof(key_hit_t)) {
+        key_hit_t hit;
+        memcpy(&hit, initiator2target_buffer, sizeof(key_hit_t));
+        apply_key_boost(hit.row, hit.col);
+    }
+}
+
+void keyboard_post_init_user(void) {
+    transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+
+    // Initialize state
+    for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
+        led_boost[i] = 127;
+        led_to_row[i] = 255;
+        led_to_col[i] = 255;
+    }
+
+    // Pre-populate LED to Matrix mapping for fast/safe shader lookup
+    for (uint8_t r = 0; r < MATRIX_ROWS; r++) {
+        for (uint8_t c = 0; c < MATRIX_COLS; c++) {
+            uint8_t led = g_led_config.matrix_co[r][c];
+            if (led != NO_LED && led < RGB_MATRIX_LED_COUNT) {
+                led_to_row[led] = r;
+                led_to_col[led] = c;
+            }
+        }
+    }
+}
+
+/* Sprint 2.3: Additive "Boost" Logic */
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        // Only the master initiates the boost and RPC.
+        if (is_keyboard_master()) {
+            apply_key_boost(record->event.key.row, record->event.key.col);
+            key_hit_t hit = {record->event.key.row, record->event.key.col};
+            transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(hit), &hit, 0, NULL);
+        }
+    }
+    return true;
+}
+
+/* Sprint 2.4: Linear Decay Math */
+void matrix_scan_user(void) {
+    static uint32_t decay_timer = 0;
+
+    // Faster decay: every 5ms
+    if (timer_elapsed32(decay_timer) > 5) {
+        decay_timer = timer_read32();
+        for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
+            if (led_boost[i] > 127) {
+                led_boost[i] -= 1;
+            } else if (led_boost[i] < 127) {
+                led_boost[i] = 127;
+            }
+        }
+    }
 }
 
 #if defined(ENCODER_MAP_ENABLE)

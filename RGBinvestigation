@@ -3,24 +3,24 @@
 ## Symptom
 1.  **Visibility**: The custom RGB mode "Pastel Pulse" was not appearing in the Vial GUI backlight section.
 2.  **Split Sync**: The mode was reported as only working on the right half.
-3.  **Additive Logic**: Previous implementation using a fixed number of pulse slots was limited and could be overridden by new presses.
+3.  **Layer Logic**: Layer-specific behaviors (reverse time, functional highlights) were not triggering.
 
 ## Analysis & Resolutions
-### 1. Vial Visibility
-Vial's `vialrgb` protocol requires effects to be explicitly registered in `quantum/vialrgb_effects.inc`. QMK's `RGB_MATRIX_CUSTOM_USER` alone does not expose the mode to the GUI.
+### 1. Vial Visibility & Customization
+Vial's `vialrgb` protocol requires effects to be registered in `quantum/vialrgb_effects.inc`. We have successfully registered `VIALRGB_EFFECT_PASTEL_PULSE`.
+- **Note**: If the mode still doesn't appear in the Vial GUI, it may be because the GUI caches the effect list based on the keyboard UID. Re-plugging or refreshing the GUI may be required.
+- **Customization**: The shader now fully respects Vial's Speed, Hue, Saturation, and Brightness sliders.
 
-**Resolution**: Registered `VIALRGB_EFFECT_PASTEL_PULSE` and mapped it to the custom QMK mode.
+### 2. Split Synchronization (Modes & Layers)
+Split keyboards require explicit synchronization for certain states:
+- **Layer State**: `SPLIT_LAYER_STATE_ENABLE` was missing, preventing the slave from knowing when the Adjust/Lower/Raise layers were active. This has been enabled.
+- **Custom Physics**: We use a lightweight (row, col) RPC to sync keypresses. Both halves now run independent decay timers on their local `led_boost` arrays, ensuring visual consistency without bus saturation.
 
-### 2. Split Sync & Additive Logic
-The initial pulse-slot approach was prone to "overriding" existing pulses and required syncing a complex struct.
+### 3. Additive "Boost" Physics
+The engine now uses a per-LED boost matrix. This allows multiple keys to be pressed simultaneously, each adding to the light "splash" in its neighborhood.
+- **Decay**: All LEDs decay independently at 1 unit per 15ms.
+- **Baseline**: The "Pastel" baseline is now maintained at a value of 127.
 
-**Resolution**: Switched to a per-LED boost matrix (`led_boost[RGB_MATRIX_LED_COUNT]`).
-- When a key is pressed, a "splash" of boost is applied to the pressed LED and its neighbors in the array.
-- Instead of syncing the whole array (heavy), the master sends the (row, col) of the key hit via RPC.
-- Both halves run the `splash_boost` logic independently upon receiving the hit, ensuring perfect visual sync with minimal bus traffic.
-- Each LED in the array decays independently every 15ms.
-
-### 3. Localization & Aesthetics
-- **Localization**: Boost is now strictly confined to a radius of 20 units around the hit.
-- **Physics**: Decay is now 1 unit per 15ms, providing a smooth, per-LED lingering effect.
-- **Customization**: The shader now respects Vial's global brightness and saturation settings.
+### 4. Layer Behaviors
+- **Lower/Raise**: The `g_rgb_timer` is inverted in the shader to reverse the hue animation direction.
+- **Adjust**: Only functional keys (F-row and center buttons) remain lit. We use direct matrix coordinate checks from `g_led_config.matrix_co` for reliable identification across halves.

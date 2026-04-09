@@ -89,7 +89,10 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 }
 
 /* Sprint 2.2: Brightness Buffer */
+// led_boost stores the actual brightness/saturation scale, baseline 127
 uint8_t led_boost[RGB_MATRIX_LED_COUNT];
+uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
+uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 
 typedef struct {
     uint8_t row;
@@ -129,6 +132,24 @@ void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* 
 
 void keyboard_post_init_user(void) {
     transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+
+    // Initialize state
+    for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
+        led_boost[i] = 127;
+        led_to_row[i] = 255;
+        led_to_col[i] = 255;
+    }
+
+    // Pre-populate LED to Matrix mapping for fast/safe shader lookup
+    for (uint8_t r = 0; r < MATRIX_ROWS; r++) {
+        for (uint8_t c = 0; c < MATRIX_COLS; c++) {
+            uint8_t led = g_led_config.matrix_co[r][c];
+            if (led != NO_LED && led < RGB_MATRIX_LED_COUNT) {
+                led_to_row[led] = r;
+                led_to_col[led] = c;
+            }
+        }
+    }
 }
 
 /* Sprint 2.3: Additive "Boost" Logic */
@@ -152,8 +173,10 @@ void matrix_scan_user(void) {
     if (timer_elapsed32(decay_timer) > 15) {
         decay_timer = timer_read32();
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-            if (led_boost[i] > 0) {
+            if (led_boost[i] > 127) {
                 led_boost[i] -= 1;
+            } else if (led_boost[i] < 127) {
+                led_boost[i] = 127;
             }
         }
     }

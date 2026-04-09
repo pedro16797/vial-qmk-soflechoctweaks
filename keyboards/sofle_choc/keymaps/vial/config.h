@@ -45,6 +45,11 @@
 /* Sprint 1.1: smoother precise dial rotation */
 #define ENCODER_RESOLUTION 4
 
+#define RGB_MATRIX_LED_COUNT 58
+#define SPLIT_LAYER_STATE_ENABLE
+enum user_rpc_ids {
+    BOOST_BRIGHTNESS_SYNC = 0,
+};
 #define SPLIT_TRANSACTION_IDS_USER BOOST_BRIGHTNESS_SYNC
 
 #define ENABLE_RGB_MATRIX_PASTEL_PULSE

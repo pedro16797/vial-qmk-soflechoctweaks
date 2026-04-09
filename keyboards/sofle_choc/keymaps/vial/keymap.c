@@ -90,7 +90,7 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 /* Sprint 2.2: Brightness Buffer */
 // led_boost stores the actual brightness/saturation scale, baseline 127
-uint8_t led_boost[RGB_MATRIX_LED_COUNT];
+volatile uint8_t led_boost[RGB_MATRIX_LED_COUNT];
 uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
 uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 
@@ -103,10 +103,10 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED) return;
 
-    if (led_boost[led_index] + 32 > 255) {
+    if (led_boost[led_index] + 128 > 255) {
         led_boost[led_index] = 255;
     } else {
-        led_boost[led_index] += 32;
+        led_boost[led_index] += 128;
     }
 }
 
@@ -119,7 +119,9 @@ void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* 
 }
 
 void keyboard_post_init_user(void) {
-    transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+    if (!is_keyboard_master()) {
+        transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+    }
 
     // Initialize state
     for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
@@ -161,12 +163,10 @@ void matrix_scan_user(void) {
     if (timer_elapsed32(decay_timer) > 5) {
         decay_timer = timer_read32();
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-            if (led_boost[i] > 128) {
-                led_boost[i] -= 2;
-            } else if (led_boost[i] < 126) {
-                led_boost[i] += 2;
-            } else {
-                led_boost[i] = 127;
+            if (led_boost[i] > 127) {
+                led_boost[i] -= 1;
+            } else if (led_boost[i] < 127) {
+                led_boost[i] += 1;
             }
         }
     }

@@ -2,20 +2,22 @@
 
 ## Symptom
 1.  **Visibility**: Mode was hidden in Vial GUI.
-2.  **Split Sync**: Left half didn't receive custom mode or key-localized pulses.
-3.  **Layers**: Layer-aware behaviors (reverse hue, functional masks) weren't working.
+2.  **Split Sync**: Left half didn't receive custom mode or key-reactive pulses.
+3.  **Layers**: Layer-aware behaviors weren't working.
 
 ## Analysis & Resolutions
 ### 1. Vial Visibility & Keyboard UID
 - **Enum Clash**: Resolved a `redeclaration of enumerator` error in `config.h` by removing redundant manual enum definitions.
-- **GUI Cache**: Incremented `VIAL_KEYBOARD_UID` to `0x8E` to force the Vial GUI to reload the keyboard definition, ensuring the new mode appears.
+- **GUI Cache**: Incremented `VIAL_KEYBOARD_UID` to `0x8E` to force the Vial GUI to reload the keyboard definition.
 - **Protocol**: Registered `VIALRGB_EFFECT_PASTEL_PULSE` in `vialrgb_effects.inc`.
 
-### 2. Split Synchronization & Additive Logic
+### 2. Split Synchronization & Simplified Logic
 - **Layer State**: Enabled `SPLIT_LAYER_STATE_ENABLE` to sync layer data to the slave.
-- **Double-Triggering**: Refactored `process_record_user` to ensure only the Master initiates "splashes" and RPC calls. Slaves now only splash when receiving the RPC.
-- **Additive Physics**: Used a per-LED boost matrix (`led_boost`) with independent local decay timers on both halves.
+- **Per-Key Logic**: Refactored from "splashes" to individual per-key boosts. This is much more efficient as it removes the need to loop through all LEDs on every key press.
+- **Efficient Sync**: Master broadcasts raw (row, col) key hits via RPC. Slaves update their local `led_boost` array for that specific key only.
+- **Additive Stacking**: Key presses increment the specific LED's boost by 32, allowing stacking up to 255.
 
 ### 3. Localization & Aesthetics
-- **Safe Coordinate Mapping**: Implemented `led_to_row` and `led_to_col` lookup arrays, pre-populated in `keyboard_post_init_user`, to allow the shader to safely identify functional keys without OOB memory reads.
+- **Decay**: Faster independent decay (every 5ms) for a more responsive feel.
 - **Vial Customization**: Tied hue, saturation, and brightness scaling directly to Vial global variables and the speed property.
+- **Adjust Layer**: Implemented functional-only backlighting using safe coordinate maps.

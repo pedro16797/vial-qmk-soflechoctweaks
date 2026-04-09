@@ -99,26 +99,14 @@ typedef struct {
     uint8_t col;
 } key_hit_t;
 
-void splash_boost(uint8_t row, uint8_t col) {
-    uint8_t center_led = g_led_config.matrix_co[row][col];
-    if (center_led == NO_LED) return;
+void apply_key_boost(uint8_t row, uint8_t col) {
+    uint8_t led_index = g_led_config.matrix_co[row][col];
+    if (led_index == NO_LED) return;
 
-    uint8_t cx = g_led_config.point[center_led].x;
-    uint8_t cy = g_led_config.point[center_led].y;
-
-    for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-        int16_t dx = (int16_t)g_led_config.point[i].x - (int16_t)cx;
-        int16_t dy = (int16_t)g_led_config.point[i].y - (int16_t)cy;
-        uint16_t dist = (uint16_t)((abs(dx) + abs(dy)) * 2 / 3);
-
-        if (dist < 20) {
-            uint16_t boost_amount = (20 - dist) * 128 / 20;
-            if (led_boost[i] + boost_amount > 255) {
-                led_boost[i] = 255;
-            } else {
-                led_boost[i] += (uint8_t)boost_amount;
-            }
-        }
+    if (led_boost[led_index] + 32 > 255) {
+        led_boost[led_index] = 255;
+    } else {
+        led_boost[led_index] += 32;
     }
 }
 
@@ -126,7 +114,7 @@ void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* 
     if (initiator2target_length == sizeof(key_hit_t)) {
         key_hit_t hit;
         memcpy(&hit, initiator2target_buffer, sizeof(key_hit_t));
-        splash_boost(hit.row, hit.col);
+        apply_key_boost(hit.row, hit.col);
     }
 }
 
@@ -155,10 +143,9 @@ void keyboard_post_init_user(void) {
 /* Sprint 2.3: Additive "Boost" Logic */
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
-        // Only the master initiates the splash and RPC.
-        // The slave will receive the splash command via RPC.
+        // Only the master initiates the boost and RPC.
         if (is_keyboard_master()) {
-            splash_boost(record->event.key.row, record->event.key.col);
+            apply_key_boost(record->event.key.row, record->event.key.col);
             key_hit_t hit = {record->event.key.row, record->event.key.col};
             transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(hit), &hit, 0, NULL);
         }
@@ -170,8 +157,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 void matrix_scan_user(void) {
     static uint32_t decay_timer = 0;
 
-    // Decay should happen independently on both halves to ensure perfect smoothness.
-    if (timer_elapsed32(decay_timer) > 15) {
+    // Faster decay: every 5ms
+    if (timer_elapsed32(decay_timer) > 5) {
         decay_timer = timer_read32();
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 127) {

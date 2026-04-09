@@ -1,26 +1,21 @@
 # RGB Investigation: Custom Mode Visibility and Split Sync
 
 ## Symptom
-1.  **Visibility**: The custom RGB mode "Pastel Pulse" was not appearing in the Vial GUI backlight section.
-2.  **Split Sync**: The mode was reported as only working on the right half.
-3.  **Layer Logic**: Layer-specific behaviors (reverse time, functional highlights) were not triggering.
+1.  **Visibility**: Mode was hidden in Vial GUI.
+2.  **Split Sync**: Left half didn't receive custom mode or key-localized pulses.
+3.  **Layers**: Layer-aware behaviors (reverse hue, functional masks) weren't working.
 
 ## Analysis & Resolutions
-### 1. Vial Visibility & Customization
-Vial's `vialrgb` protocol requires effects to be registered in `quantum/vialrgb_effects.inc`. We have successfully registered `VIALRGB_EFFECT_PASTEL_PULSE`.
-- **Note**: If the mode still doesn't appear in the Vial GUI, it may be because the GUI caches the effect list based on the keyboard UID. Re-plugging or refreshing the GUI may be required.
-- **Customization**: The shader now fully respects Vial's Speed, Hue, Saturation, and Brightness sliders.
+### 1. Vial Visibility & Keyboard UID
+- **Enum Clash**: Resolved a `redeclaration of enumerator` error in `config.h` by removing redundant manual enum definitions.
+- **GUI Cache**: Incremented `VIAL_KEYBOARD_UID` to `0x8E` to force the Vial GUI to reload the keyboard definition, ensuring the new mode appears.
+- **Protocol**: Registered `VIALRGB_EFFECT_PASTEL_PULSE` in `vialrgb_effects.inc`.
 
-### 2. Split Synchronization (Modes & Layers)
-Split keyboards require explicit synchronization for certain states:
-- **Layer State**: `SPLIT_LAYER_STATE_ENABLE` was missing, preventing the slave from knowing when the Adjust/Lower/Raise layers were active. This has been enabled.
-- **Custom Physics**: We use a lightweight (row, col) RPC to sync keypresses. Both halves now run independent decay timers on their local `led_boost` arrays, ensuring visual consistency without bus saturation.
+### 2. Split Synchronization & Additive Logic
+- **Layer State**: Enabled `SPLIT_LAYER_STATE_ENABLE` to sync layer data to the slave.
+- **Double-Triggering**: Refactored `process_record_user` to ensure only the Master initiates "splashes" and RPC calls. Slaves now only splash when receiving the RPC.
+- **Additive Physics**: Used a per-LED boost matrix (`led_boost`) with independent local decay timers on both halves.
 
-### 3. Additive "Boost" Physics
-The engine now uses a per-LED boost matrix. This allows multiple keys to be pressed simultaneously, each adding to the light "splash" in its neighborhood.
-- **Decay**: All LEDs decay independently at 1 unit per 15ms.
-- **Baseline**: The "Pastel" baseline is now maintained at a value of 127.
-
-### 4. Layer Behaviors
-- **Lower/Raise**: The `g_rgb_timer` is inverted in the shader to reverse the hue animation direction.
-- **Adjust**: Only functional keys (F-row and center buttons) remain lit. We use direct matrix coordinate checks from `g_led_config.matrix_co` for reliable identification across halves.
+### 3. Localization & Aesthetics
+- **Safe Coordinate Mapping**: Implemented `led_to_row` and `led_to_col` lookup arrays, pre-populated in `keyboard_post_init_user`, to allow the shader to safely identify functional keys without OOB memory reads.
+- **Vial Customization**: Tied hue, saturation, and brightness scaling directly to Vial global variables and the speed property.

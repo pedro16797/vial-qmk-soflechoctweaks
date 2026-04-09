@@ -30,7 +30,7 @@
 #define RGB_MATRIX_MAXIMUM_BRIGHTNESS 100  // limits maximum brightness of LEDs (max 255). Higher may cause the controller to crash.
 
 // Vial Support
-#define VIAL_KEYBOARD_UID {0xA7, 0xA7, 0x9C, 0x4C, 0xE0, 0xB8, 0x00, 0x8D}
+#define VIAL_KEYBOARD_UID {0xA7, 0xA7, 0x9C, 0x4C, 0xE0, 0xB8, 0x00, 0x8E}
 
 // The four corners
 #define VIAL_UNLOCK_COMBO_ROWS { 0, 5, 3, 8 }
@@ -47,9 +47,6 @@
 
 #define RGB_MATRIX_LED_COUNT 58
 #define SPLIT_LAYER_STATE_ENABLE
-enum user_rpc_ids {
-    BOOST_BRIGHTNESS_SYNC = 0,
-};
 #define SPLIT_TRANSACTION_IDS_USER BOOST_BRIGHTNESS_SYNC
 
 #define ENABLE_RGB_MATRIX_PASTEL_PULSE

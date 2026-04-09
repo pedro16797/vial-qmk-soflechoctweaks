@@ -63,7 +63,6 @@ bool pastel_pulse(effect_params_t* params) {
         uint8_t sat = (uint8_t)s_total;
         uint8_t val = (uint8_t)v_total;
 
-        HSV hsv = {hue, sat, val};
         HSV hsv_final = {hue, sat, val};
         RGB rgb = hsv_to_rgb(hsv_final);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);

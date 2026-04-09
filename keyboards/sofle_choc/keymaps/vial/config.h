@@ -30,15 +30,12 @@
 #define RGB_MATRIX_MAXIMUM_BRIGHTNESS 100  // limits maximum brightness of LEDs (max 255). Higher may cause the controller to crash.
 
 // Vial Support
-#define VIAL_KEYBOARD_UID {0xA7, 0xA7, 0x9C, 0x4C, 0xE0, 0xB8, 0x00, 0x8D}
+#define VIAL_KEYBOARD_UID {0xA7, 0xA7, 0x9C, 0x4C, 0xE0, 0xB8, 0x00, 0x8F}
 
 // The four corners
 #define VIAL_UNLOCK_COMBO_ROWS { 0, 5, 3, 8 }
 #define VIAL_UNLOCK_COMBO_COLS { 0, 0, 0, 0 }
 
-
-#define RGBLED_NUM 70
-#define RGBLED_SPLIT {35,35}
 
 #define RGB_MATRIX_FRAMEBUFFER_EFFECTS
 #define RGB_MATRIX_KEYPRESSES
@@ -47,6 +44,12 @@
 
 /* Sprint 1.1: smoother precise dial rotation */
 #define ENCODER_RESOLUTION 4
+
+#define RGB_MATRIX_LED_COUNT 70
+#define SPLIT_LAYER_STATE_ENABLE
+#define SPLIT_TRANSACTION_IDS_USER BOOST_BRIGHTNESS_SYNC
+
+#define ENABLE_RGB_MATRIX_PASTEL_PULSE
 
 /* Sprint 1.3: Vial Dynamic Combo Support */
 #define VIAL_COMBO_ENTRIES 4

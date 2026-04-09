@@ -13,17 +13,17 @@
     * Modify `config.h` to add `#define COMBO_COUNT 1`.
     * Modify `keymap.c` to define the combo array and struct for `MO(1) + MO(2) = MO(3)`.
 
-## Sprint 2: The "Pastel Pulse" RGB Engine [Upcoming]
-**Goal:** Implement the custom reactive lighting physics engine with additive brightness and a top-center radial origin.
+## Sprint 2: The "Pastel Pulse" RGB Engine [Completed]
+**Goal:** Implement the custom reactive lighting physics engine with additive per-LED state, localized radial pulses, and layer-aware behaviors.
 
 * **2.1 Enable RGB Features:**
     * Modify `rules.mk` to ensure `RGB_MATRIX_ENABLE = yes` and `RGB_MATRIX_CUSTOM_USER = yes`.
     * Modify `config.h` to include `#define RGB_MATRIX_FRAMEBUFFER_EFFECTS` and `#define RGB_MATRIX_KEYREACTIVE_ENABLED`.
-* **2.2 Implement the Brightness Buffer:**
-    * In `keymap.c`, declare a global static variable: `static uint16_t boost_brightness = 0;`.
+* **2.2 Implement the Brightness Matrix:**
+    * In `keymap.c`, implement `led_boost[RGB_MATRIX_LED_COUNT]` for per-LED state tracking.
 * **2.3 Create the Additive "Boost" Logic (With Safety):**
-    * In `keymap.c` within `process_record_user()`, add logic to increment `boost_brightness` by 51 on every key press.
-    * **CRITICAL:** Implement the safety clamp immediately after the increment: `if (boost_brightness > 255) boost_brightness = 255;`.
+    * In `keymap.c` within `process_record_user()`, add logic to increment the hit LED's boost by 32 on every key press.
+    * **CRITICAL:** Implement the safety clamp immediately after the increment and sync to slave via RPC.
 * **2.4 Create the Linear Decay Math:**
     * In `keymap.c` within `matrix_scan_user()`, implement a timer to decrement `boost_brightness` (e.g., `-5` every `10ms`) until it reaches 0.
 * **2.5 Build the Custom RGB Effect:**

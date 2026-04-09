@@ -1,0 +1,24 @@
+# RGB Investigation: Custom Mode Visibility and Split Sync
+
+## Symptom
+1.  **Visibility**: Mode was hidden in Vial GUI.
+2.  **Split Sync**: Left half didn't receive custom mode or key-reactive pulses.
+3.  **Layers**: Layer-aware behaviors weren't working.
+4.  **Decay**: Fade-out effect was reported as non-functional.
+
+## Analysis & Resolutions
+### 1. Vial Visibility & Keyboard UID
+- **Enum Clash**: Resolved a `redeclaration of enumerator` error in `config.h` by defining `BOOST_BRIGHTNESS_SYNC_ID` explicitly.
+- **GUI Cache**: Incremented `VIAL_KEYBOARD_UID` to `0x8F` to force the Vial GUI to reload the keyboard definition.
+- **Protocol**: Registered `VIALRGB_EFFECT_PASTEL_PULSE` in `vialrgb_effects.inc`.
+
+### 2. Split Synchronization & Additive Logic
+- **Layer State**: Enabled `SPLIT_LAYER_STATE_ENABLE` to sync layer data to the slave.
+- **Double-Triggering**: Ensured only the Master initiates boosts and RPC calls. Slaves update their local state via RPC.
+- **Independent Decay**: Decay logic now runs on BOTH halves independently every 5ms, ensuring smooth visuals even if RPC packets are dropped.
+- **Per-Key Boost**: Optimized to affect only the pressed key (increment by 32), improving performance.
+
+### 3. Localization & Aesthetics
+- **Safe Coordinate Mapping**: Uses pre-calculated `led_to_row` and `led_to_col` arrays for safe OOB coordinate lookup in the shader loop.
+- **Vial Customization**: Tied hue, saturation, and brightness scaling directly to Vial global variables and the speed property.
+- **Adjust Layer**: Only functional keys (F-row and center buttons) on both halves remain lit.

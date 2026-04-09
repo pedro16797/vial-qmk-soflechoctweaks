@@ -102,12 +102,12 @@ typedef struct {
 
 void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
-    if (led_index == NO_LED) return;
+    if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
 
-    if (led_boost[led_index] + 32 > 255) {
+    if (led_boost[led_index] + 64 > 255) {
         led_boost[led_index] = 255;
     } else {
-        led_boost[led_index] += 32;
+        led_boost[led_index] += 64;
     }
 }
 
@@ -159,12 +159,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 /* Sprint 2.4: Linear Decay Math */
 void matrix_scan_user(void) {
     // Robust decay: every 10ms
-    if (timer_elapsed32(decay_timer) >= 10) {
-        decay_timer = timer_read32();
+    uint32_t elapsed = timer_elapsed32(decay_timer);
+    if (elapsed >= 10) {
+        uint8_t ticks = elapsed / 10;
+        decay_timer += ticks * 10;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 127) {
-                if (led_boost[i] > 128) {
-                    led_boost[i] -= 2;
+                uint8_t decay = ticks * 4;
+                if (led_boost[i] > 127 + decay) {
+                    led_boost[i] -= decay;
                 } else {
                     led_boost[i] = 127;
                 }

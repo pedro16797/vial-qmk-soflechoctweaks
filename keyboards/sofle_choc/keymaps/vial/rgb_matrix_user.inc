@@ -4,7 +4,7 @@ RGB_MATRIX_EFFECT(pastel_pulse)
 
 #include <stdlib.h>
 
-extern uint8_t led_boost[RGB_MATRIX_LED_COUNT];
+extern volatile uint8_t led_boost[RGB_MATRIX_LED_COUNT];
 extern uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
 extern uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 extern layer_state_t layer_state;
@@ -21,14 +21,11 @@ bool pastel_pulse(effect_params_t* params) {
     uint8_t layer = get_highest_layer(layer_state);
 
     // Reverse time if in Lower (1) or Raise (2) layers
-    int32_t time_raw = (int32_t)g_rgb_timer;
-    if (layer == 1 || layer == 2) {
-        time_raw = -time_raw;
-    }
-    // Fast animation speed: speed/1024
-    uint32_t time = (uint32_t)(time_raw * speed) / 1024;
+    uint32_t time_base = (layer == 1 || layer == 2) ? (0 - g_rgb_timer) : g_rgb_timer;
+    uint32_t time      = (uint32_t)(time_base * speed) / 1024;
 
     for (uint8_t i = led_min; i < led_max; i++) {
+        if (i >= RGB_MATRIX_LED_COUNT) break;
         RGB_MATRIX_TEST_LED_FLAGS();
 
         uint8_t level = led_boost[i];
@@ -67,7 +64,8 @@ bool pastel_pulse(effect_params_t* params) {
         uint8_t val = (uint8_t)v_total;
 
         HSV hsv = {hue, sat, val};
-        RGB rgb = hsv_to_rgb(hsv);
+        HSV hsv_final = {hue, sat, val};
+        RGB rgb = hsv_to_rgb(hsv_final);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);
     }
     return led_max < RGB_MATRIX_LED_COUNT;

@@ -1,28 +1,24 @@
-# RGB Investigation: Custom Mode Split Sync Issue
+# RGB Investigation: Custom Mode Visibility and Split Sync
 
 ## Symptom
-The custom RGB mode ("Pastel Pulse") is only selectable or applied correctly on the right half of the Sofle Choc keyboard when cycling through modes using `RGB_MOD`. The left half (master) does not seem to recognize the custom mode index.
+1.  **Visibility**: The custom RGB mode "Pastel Pulse" was not appearing in the Vial GUI backlight section.
+2.  **Split Sync**: The mode was reported as only working on the right half.
 
-## Current Implementation Analysis
-1.  **Rules & Config**:
-    - `RGB_MATRIX_CUSTOM_USER = yes` is enabled.
-    - `SPLIT_KEYBOARD = yes` is enabled.
-    - `rgb_matrix_user.inc` is provided in the keymap folder.
-2.  **Code Logic**:
-    - A custom RPC transaction (`BOOST_BRIGHTNESS_SYNC`) correctly synchronizes the pulse *state* (boost and coordinates).
-    - However, the *mode selection* (which effect to run) is managed by QMK/Vial's internal RGB Matrix state.
+## Analysis
+### 1. Vial Visibility
+Vial's `vialrgb` protocol requires effects to be explicitly registered in `quantum/vialrgb_effects.inc`. QMK's `RGB_MATRIX_CUSTOM_USER` allows the firmware to run the code, but without registration, Vial doesn't know the mode exists and won't include it in the `get_supported_modes` response to the GUI.
 
-## Potential Causes
-1.  **Vial Effect Indexing**:
-    - Vial's RGB Matrix implementation may use a different indexing scheme or a fixed list of effects. If the custom effect is appended to the end of the `rgb_matrix_effects` enum, it might exceed the index range expected by the Vial GUI or the slave's synchronized state.
-2.  **Enum Mismatch**:
-    - If the number of effects differs between the master and slave (e.g., due to conditional includes or build flags), the index for "Pastel Pulse" will not match, leading to different modes being active on each half.
-3.  **Slave-side Effect Registration**:
-    - In split QMK, the slave must have the same effect code compiled in. While the keymap is the same, if there's any platform-specific difference in how `RGB_MATRIX_CUSTOM_USER` is processed, the slave might not register the effect correctly.
-4.  **VialRGB Protocol**:
-    - `VIALRGB_ENABLE` might expect effects to be registered in a specific way that `RGB_MATRIX_CUSTOM_USER` alone does not satisfy.
+**Fix**: Added `VIALRGB_EFFECT_PASTEL_PULSE` to the Vial effect enum and mapped it to the custom user mode in the `supported_modes` table.
 
-## Proposed Next Steps
-- Verify if the custom mode is reachable on the slave by hardcoding `rgb_matrix_mode(RGB_MATRIX_CUSTOM_pastel_pulse)` in `matrix_init_user` on both halves.
-- Compare the `RGB_MATRIX_EFFECT_MAX` value on both halves.
-- Investigate Vial-specific RGB registration hooks.
+### 2. Split Sync
+QMK Split transport usually handles syncing the `rgb_matrix_config.mode` automatically. However, if the mode is "User Custom", and the custom effect logic is missing or differently indexed on the slave, it may fail to render.
+
+By registering the effect in `vialrgb_effects.inc`, we ensure both halves have a consistent internal index for the mode when using the Vial protocol.
+
+Additionally, our custom `BOOST_BRIGHTNESS_SYNC` RPC transaction handles the synchronization of the *state* (brightness/coordinates) needed for the effect.
+
+## Logic Improvements
+- **Additive Boost**: Changed from a single variable to a 4-slot `pulse_state_t` struct. Multiple keypresses now add independent pulses that decay concurrently.
+- **Customization**: The shader now uses `rgb_matrix_get_val()` and `rgb_matrix_get_sat()`, allowing the user to tune the "Pastel" baseline via the Vial GUI.
+- **Radius**: Tightened from 25 to 20 units for better per-key isolation.
+- **Decay**: Set to 1 unit per 15ms (~3.8s total) to balance lingering effect with responsiveness.

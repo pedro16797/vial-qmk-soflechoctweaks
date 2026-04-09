@@ -88,13 +88,19 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 }
 
 /* Sprint 2.2: Brightness Buffer */
+#define MAX_CONCURRENT_PULSES 4
+
 typedef struct {
     uint16_t boost;
     uint8_t x;
     uint8_t y;
+} pulse_t;
+
+typedef struct {
+    pulse_t pulses[MAX_CONCURRENT_PULSES];
 } pulse_state_t;
 
-pulse_state_t pulse_state = {0, 112, 0};
+pulse_state_t pulse_state = {{{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}}};
 
 void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* initiator2target_buffer, uint8_t target2initiator_length, void* target2initiator_buffer) {
     if (initiator2target_length == sizeof(pulse_state)) {
@@ -109,16 +115,27 @@ void keyboard_post_init_user(void) {
 /* Sprint 2.3: Additive "Boost" Logic */
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
-        pulse_state.boost += 51;
-        if (pulse_state.boost > 255) {
-            pulse_state.boost = 255;
-        }
-
         // Capture coordinates of the pressed key
         uint8_t led_index = g_led_config.matrix_co[record->event.key.row][record->event.key.col];
         if (led_index != NO_LED) {
-            pulse_state.x = g_led_config.point[led_index].x;
-            pulse_state.y = g_led_config.point[led_index].y;
+            // Find a slot to add the pulse
+            uint8_t slot = 0xFF;
+            uint16_t min_boost = 0xFFFF;
+            for (uint8_t i = 0; i < MAX_CONCURRENT_PULSES; i++) {
+                if (pulse_state.pulses[i].boost == 0) {
+                    slot = i;
+                    break;
+                }
+                if (pulse_state.pulses[i].boost < min_boost) {
+                    min_boost = pulse_state.pulses[i].boost;
+                    slot = i;
+                }
+            }
+            if (slot != 0xFF) {
+                pulse_state.pulses[slot].boost = 255;
+                pulse_state.pulses[slot].x = g_led_config.point[led_index].x;
+                pulse_state.pulses[slot].y = g_led_config.point[led_index].y;
+            }
         }
     }
     return true;
@@ -127,15 +144,17 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 /* Sprint 2.4: Linear Decay Math */
 void matrix_scan_user(void) {
     static uint32_t decay_timer = 0;
-    static pulse_state_t last_pulse_state = {0, 0, 0};
+    static pulse_state_t last_pulse_state;
 
     if (is_keyboard_master()) {
         if (timer_elapsed32(decay_timer) > 15) {
             decay_timer = timer_read32();
-            if (pulse_state.boost >= 1) {
-                pulse_state.boost -= 1;
-            } else {
-                pulse_state.boost = 0;
+            for (uint8_t i = 0; i < MAX_CONCURRENT_PULSES; i++) {
+                if (pulse_state.pulses[i].boost > 1) {
+                    pulse_state.pulses[i].boost -= 1;
+                } else {
+                    pulse_state.pulses[i].boost = 0;
+                }
             }
         }
 

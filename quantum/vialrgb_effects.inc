@@ -47,6 +47,7 @@ enum {
     VIALRGB_EFFECT_SOLID_MULTISPLASH,
     VIALRGB_EFFECT_PIXEL_RAIN,
     VIALRGB_EFFECT_PIXEL_FRACTAL,
+    VIALRGB_EFFECT_PASTEL_PULSE,
 };
 
 static const PROGMEM vialrgb_supported_mode_t supported_modes[] = {
@@ -182,5 +183,8 @@ static const PROGMEM vialrgb_supported_mode_t supported_modes[] = {
 #endif
 #ifdef RGB_MATRIX_EFFECT_PIXEL_FRACTAL
     { VIALRGB_EFFECT_PIXEL_FRACTAL, RGB_MATRIX_PIXEL_FRACTAL },
+#endif
+#ifdef ENABLE_RGB_MATRIX_PASTEL_PULSE
+    { VIALRGB_EFFECT_PASTEL_PULSE, RGB_MATRIX_CUSTOM_pastel_pulse },
 #endif
 };

@@ -90,9 +90,10 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 /* Sprint 2.2: Brightness Buffer */
 // led_boost stores the actual brightness/saturation scale, baseline 127
-uint8_t led_boost[RGB_MATRIX_LED_COUNT];
+volatile uint8_t led_boost[RGB_MATRIX_LED_COUNT];
 uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
 uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
+uint32_t decay_timer = 0;
 
 typedef struct {
     uint8_t row;
@@ -120,6 +121,8 @@ void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* 
 
 void keyboard_post_init_user(void) {
     transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+
+    decay_timer = timer_read32();
 
     // Initialize state
     for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
@@ -155,14 +158,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 /* Sprint 2.4: Linear Decay Math */
 void matrix_scan_user(void) {
-    static uint32_t decay_timer = 0;
-
-    // Faster decay: every 5ms
-    if (timer_elapsed32(decay_timer) > 5) {
+    // Robust decay: every 10ms
+    if (timer_elapsed32(decay_timer) >= 10) {
         decay_timer = timer_read32();
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 127) {
-                led_boost[i] -= 1;
+                if (led_boost[i] > 128) {
+                    led_boost[i] -= 2;
+                } else {
+                    led_boost[i] = 127;
+                }
             } else if (led_boost[i] < 127) {
                 led_boost[i] = 127;
             }

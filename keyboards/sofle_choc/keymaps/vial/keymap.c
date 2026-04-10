@@ -117,7 +117,9 @@ void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* 
 }
 
 void keyboard_post_init_user(void) {
-    transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+    if (!is_keyboard_master()) {
+        transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+    }
 
     decay_timer = timer_read32();
 
@@ -152,18 +154,20 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-void matrix_scan_user(void) {
+void housekeeping_task_user(void) {
     uint32_t tickLength = 30;
     uint32_t elapsed = timer_elapsed32(decay_timer);
     if (elapsed >= tickLength) {
         uint32_t ticks = elapsed / tickLength;
-        decay_timer += elapsed;
+        decay_timer += ticks * tickLength;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 127) {
-                led_boost[i] -= ticks;
-            }
-            if (led_boost[i] < 127) {
-                led_boost[i] = 127;
+                uint8_t delta = led_boost[i] - 127;
+                if (ticks >= delta) {
+                    led_boost[i] = 127;
+                } else {
+                    led_boost[i] -= (uint8_t)ticks;
+                }
             }
         }
     }

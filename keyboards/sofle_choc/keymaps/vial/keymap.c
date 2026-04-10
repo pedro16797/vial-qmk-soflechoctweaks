@@ -158,11 +158,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 /* Sprint 2.4: Linear Decay Math */
 void matrix_scan_user(void) {
-    // Robust decay: every 10ms
+    // Smooth decay: every 30ms
     uint32_t elapsed = timer_elapsed32(decay_timer);
-    if (elapsed >= 10) {
-        uint32_t ticks = elapsed / 10;
-        decay_timer += ticks * 10;
+    if (elapsed >= 30) {
+        uint32_t ticks = elapsed / 30;
+        decay_timer += ticks * 30;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 127) {
                 uint32_t decay = ticks * 1;

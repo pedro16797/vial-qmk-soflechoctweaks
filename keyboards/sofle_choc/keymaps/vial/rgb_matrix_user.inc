@@ -9,9 +9,11 @@ extern uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
 extern uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 extern layer_state_t layer_state;
 extern uint32_t g_rgb_timer;
+extern bool is_keyboard_left(void);
 
 bool pastel_pulse(effect_params_t* params) {
     RGB_MATRIX_USE_LIMITS(led_min, led_max);
+    uint8_t limit = is_keyboard_left() ? 29 : RGB_MATRIX_LED_COUNT;
 
     uint8_t global_v = rgb_matrix_get_val();
     uint8_t global_s = rgb_matrix_get_sat();
@@ -25,7 +27,7 @@ bool pastel_pulse(effect_params_t* params) {
     uint32_t time      = (uint32_t)((uint64_t)time_base * speed) / 1024;
 
     for (uint8_t i = led_min; i < led_max; i++) {
-        if (i >= RGB_MATRIX_LED_COUNT) break;
+        if (i >= limit) break;
         RGB_MATRIX_TEST_LED_FLAGS();
 
         uint8_t level = led_boost[i];
@@ -67,7 +69,7 @@ bool pastel_pulse(effect_params_t* params) {
         RGB rgb = hsv_to_rgb(hsv_final);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);
     }
-    return led_max < RGB_MATRIX_LED_COUNT;
+    return (led_max < limit) && (led_max > led_min);
 }
 
 #endif // RGB_MATRIX_CUSTOM_EFFECT_IMPLS

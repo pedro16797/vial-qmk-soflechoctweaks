@@ -156,7 +156,7 @@ void matrix_scan_user(void) {
     uint32_t tickLength = 30;
     uint32_t elapsed = timer_elapsed32(decay_timer);
     if (elapsed >= tickLength) {
-        uint32_t ticks =de elapsed / tickLength;
+        uint32_t ticks = elapsed / tickLength;
         decay_timer += elapsed;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 127) {

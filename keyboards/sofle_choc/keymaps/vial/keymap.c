@@ -125,7 +125,7 @@ void keyboard_post_init_user(void) {
 
     // Initialize state
     for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-        led_boost[i] = 127;
+        led_boost[i] = 0;
         led_to_row[i] = 255;
         led_to_col[i] = 255;
     }
@@ -161,10 +161,10 @@ void housekeeping_task_user(void) {
         uint32_t ticks = elapsed / tickLength;
         decay_timer += ticks * tickLength;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-            if (led_boost[i] > 127) {
-                uint8_t delta = led_boost[i] - 127;
+            if (led_boost[i] > 0) {
+                uint8_t delta = led_boost[i];
                 if (ticks >= delta) {
-                    led_boost[i] = 127;
+                    led_boost[i] = 0;
                 } else {
                     led_boost[i] -= (uint8_t)ticks;
                 }

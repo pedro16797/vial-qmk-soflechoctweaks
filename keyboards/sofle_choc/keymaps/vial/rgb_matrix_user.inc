@@ -9,6 +9,7 @@ extern uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
 extern uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 extern layer_state_t layer_state;
 extern uint32_t g_rgb_timer;
+extern bool is_keyboard_left(void);
 
 bool pastel_pulse(effect_params_t* params) {
     RGB_MATRIX_USE_LIMITS(led_min, led_max);
@@ -24,33 +25,25 @@ bool pastel_pulse(effect_params_t* params) {
     uint32_t time_base = (layer == 1 || layer == 2) ? (0 - g_rgb_timer) : g_rgb_timer;
     uint32_t time      = (uint32_t)((uint64_t)time_base * speed) / 1024;
 
+    uint8_t local_min = is_keyboard_left() ? 0 : 29;
+    uint8_t local_max = is_keyboard_left() ? 29 : RGB_MATRIX_LED_COUNT;
+
     for (uint8_t i = led_min; i < led_max; i++) {
-        if (i >= RGB_MATRIX_LED_COUNT) break;
+        if (i < local_min || i >= local_max) continue;
         RGB_MATRIX_TEST_LED_FLAGS();
 
         uint8_t level = led_boost[i];
 
         // Adjust layer logic: turn off RGB except for specific functional keys
-        if (layer == 3) {
+        if (layer == 3 && is_keyboard_left()) {
             bool is_functional = false;
 
             uint8_t row = led_to_row[i];
             uint8_t col = led_to_col[i];
 
-            if (row != 255 && col != 255) {
-                if (row == 1 && col >= 1 && col <= 4) is_functional = true;
-                if (row == 2 && col >= 1 && col <= 4) is_functional = true;
-                if (row == 3 && col >= 1 && col <= 4) is_functional = true;
-                if (row == 4 && col == 5) is_functional = true;
-
-                if (row == 6 && col >= 1 && col <= 4) is_functional = true;
-                if (row == 7 && col >= 1 && col <= 4) is_functional = true;
-                if (row == 8 && col >= 1 && col <= 4) is_functional = true;
-                if (row == 9 && col == 5) is_functional = true;
-            }
-
-            if (!is_functional) {
-                rgb_matrix_set_color(i, 0, 0, 0);
+            if ((col >= 1 && col <= 4 && row >= 1 && row <= 8 && row != 4) ||
+                (col == 5 && (row == 4 || row == 9))) {
+                rgb_matrix_set_color(i, 255, 255, 255);
                 continue;
             }
         }
@@ -67,7 +60,7 @@ bool pastel_pulse(effect_params_t* params) {
         RGB rgb = hsv_to_rgb(hsv_final);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);
     }
-    return led_max < RGB_MATRIX_LED_COUNT;
+    return (led_max < local_max) && (led_min > local_min);
 }
 
 #endif // RGB_MATRIX_CUSTOM_EFFECT_IMPLS

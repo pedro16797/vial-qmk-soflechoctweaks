@@ -58,7 +58,7 @@ bool pastel_pulse(effect_params_t* params) {
         RGB rgb = hsv_to_rgb(hsv_final);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);
     }
-    return (led_max < local_max) && (led_min > local_min);
+    return (led_max < local_max) && (led_max > local_min);
 }
 
 #endif // RGB_MATRIX_CUSTOM_EFFECT_IMPLS

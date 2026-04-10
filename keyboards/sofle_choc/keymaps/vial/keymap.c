@@ -84,12 +84,9 @@ const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 layer_state_t layer_state_set_user(layer_state_t state) {
-    /* Sprint 1.3: Tri-layer logic for MO(_LOWER) + MO(_RAISE) = MO(_ADJUST) */
     return update_tri_layer_state(state, _LOWER, _RAISE, _ADJUST);
 }
 
-/* Sprint 2.2: Brightness Buffer */
-// led_boost stores the actual brightness/saturation scale, baseline 127
 volatile uint8_t led_boost[RGB_MATRIX_LED_COUNT];
 uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
 uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
@@ -104,10 +101,10 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
 
-    if (led_boost[led_index] + 64 > 255) {
+    if (led_boost[led_index] + 32 > 255) {
         led_boost[led_index] = 255;
     } else {
-        led_boost[led_index] += 64;
+        led_boost[led_index] += 32;
     }
 }
 
@@ -143,7 +140,6 @@ void keyboard_post_init_user(void) {
     }
 }
 
-/* Sprint 2.3: Additive "Boost" Logic */
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
         // Only the master initiates the boost and RPC.
@@ -156,22 +152,17 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-/* Sprint 2.4: Linear Decay Math */
 void matrix_scan_user(void) {
-    // Smooth decay: every 30ms
+    uint32_t tickLength = 30;
     uint32_t elapsed = timer_elapsed32(decay_timer);
-    if (elapsed >= 30) {
-        uint32_t ticks = elapsed / 30;
-        decay_timer += ticks * 30;
+    if (elapsed >= tickLength) {
+        uint32_t ticks =de elapsed / tickLength;
+        decay_timer += elapsed;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 127) {
-                uint32_t decay = ticks * 1;
-                if (led_boost[i] - 127 > decay) {
-                    led_boost[i] -= (uint8_t)decay;
-                } else {
-                    led_boost[i] = 127;
-                }
-            } else if (led_boost[i] < 127) {
+                led_boost[i] -= ticks;
+            }
+            if (led_boost[i] < 127) {
                 led_boost[i] = 127;
             }
         }

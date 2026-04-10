@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-ORIG_CWD=$(pwd) PYTHONPATH=$(pwd)/lib/python python3 -c "from milc import cli; import qmk.cli; cli()" "$@"

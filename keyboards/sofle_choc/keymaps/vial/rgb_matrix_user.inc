@@ -22,7 +22,7 @@ bool pastel_pulse(effect_params_t* params) {
 
     // Reverse time if in Lower (1) or Raise (2) layers
     uint32_t time_base = (layer == 1 || layer == 2) ? (0 - g_rgb_timer) : g_rgb_timer;
-    uint32_t time      = (uint32_t)(time_base * speed) / 1024;
+    uint32_t time      = (uint32_t)((uint64_t)time_base * speed) / 1024;
 
     for (uint8_t i = led_min; i < led_max; i++) {
         if (i >= RGB_MATRIX_LED_COUNT) break;
@@ -67,7 +67,7 @@ bool pastel_pulse(effect_params_t* params) {
         RGB rgb = hsv_to_rgb(hsv_final);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);
     }
-    return led_max < RGB_MATRIX_LED_COUNT;
+    return (led_max < RGB_MATRIX_LED_COUNT) && (led_max > led_min);
 }
 
 #endif // RGB_MATRIX_CUSTOM_EFFECT_IMPLS

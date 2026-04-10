@@ -161,13 +161,13 @@ void matrix_scan_user(void) {
     // Robust decay: every 10ms
     uint32_t elapsed = timer_elapsed32(decay_timer);
     if (elapsed >= 10) {
-        uint8_t ticks = elapsed / 10;
+        uint32_t ticks = elapsed / 10;
         decay_timer += ticks * 10;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 127) {
-                uint8_t decay = ticks * 4;
+                uint32_t decay = ticks * 4;
                 if (led_boost[i] > 127 + decay) {
-                    led_boost[i] -= decay;
+                    led_boost[i] -= (uint8_t)decay;
                 } else {
                     led_boost[i] = 127;
                 }

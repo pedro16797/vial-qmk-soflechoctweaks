@@ -119,6 +119,41 @@ typedef struct {
     uint8_t col;
 } key_hit_t;
 
+typedef enum {
+    RPC_BOOST,
+    RPC_OLED
+} rpc_type_t;
+
+typedef struct {
+    rpc_type_t type;
+    union {
+        key_hit_t hit;
+        char      c;
+    } data;
+} rpc_queue_item_t;
+
+#define RPC_QUEUE_SIZE 8
+rpc_queue_item_t rpc_queue[RPC_QUEUE_SIZE];
+uint8_t          rpc_queue_head = 0;
+uint8_t          rpc_queue_tail = 0;
+
+void rpc_queue_push(rpc_queue_item_t item) {
+    uint8_t next_head = (rpc_queue_head + 1) % RPC_QUEUE_SIZE;
+    if (next_head != rpc_queue_tail) {
+        rpc_queue[rpc_queue_head] = item;
+        rpc_queue_head            = next_head;
+    }
+}
+
+bool rpc_queue_pop(rpc_queue_item_t* item) {
+    if (rpc_queue_head == rpc_queue_tail) {
+        return false;
+    }
+    *item          = rpc_queue[rpc_queue_tail];
+    rpc_queue_tail = (rpc_queue_tail + 1) % RPC_QUEUE_SIZE;
+    return true;
+}
+
 void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
@@ -217,8 +252,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         // Only the master initiates the boost and RPC.
         if (is_keyboard_master()) {
             apply_key_boost(record->event.key.row, record->event.key.col);
-            key_hit_t hit = {record->event.key.row, record->event.key.col};
-            transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(hit), &hit, 0, NULL);
+            rpc_queue_item_t item = {.type = RPC_BOOST, .data.hit = {record->event.key.row, record->event.key.col}};
+            rpc_queue_push(item);
         }
 
 #ifdef OLED_ENABLE
@@ -240,7 +275,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 add_to_buffer(c);
             } else {
                 if (is_keyboard_master()) {
-                    transaction_rpc_exec(OLED_SYNC, sizeof(char), &c, 0, NULL);
+                    rpc_queue_item_t item = {.type = RPC_OLED, .data.c = c};
+                    rpc_queue_push(item);
                 }
             }
         }
@@ -250,6 +286,19 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 void housekeeping_task_user(void) {
+    if (is_keyboard_master()) {
+        rpc_queue_item_t item;
+        if (rpc_queue_pop(&item)) {
+            if (item.type == RPC_BOOST) {
+                transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(key_hit_t), &item.data.hit, 0, NULL);
+            } else if (item.type == RPC_OLED) {
+#ifdef OLED_ENABLE
+                transaction_rpc_exec(OLED_SYNC, sizeof(char), &item.data.c, 0, NULL);
+#endif
+            }
+        }
+    }
+
     uint32_t tickLength = 200;
     uint32_t elapsed = timer_elapsed32(decay_timer);
     if (elapsed >= tickLength) {

@@ -40,6 +40,8 @@
 #define RGB_MATRIX_FRAMEBUFFER_EFFECTS
 #define RGB_MATRIX_KEYPRESSES
 
+#define OLED_UPDATE_INTERVAL 40
+
 #define BACKLIGHT_BREATHING
 
 /* Sprint 1.1: smoother precise dial rotation */

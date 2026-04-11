@@ -171,6 +171,7 @@ void keyboard_post_init_user(void) {
 
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
+    oled_set_cursor(0, 0);
     for (uint8_t i = 0; i < 10; i++) {
         uint8_t index = (typing_buffer_index + i) % 10;
         char c = typing_buffer[index];
@@ -211,9 +212,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
 
         if (c != '\0') {
-            if (is_keyboard_left() && record->event.key.col < (MATRIX_COLS / 2)) {
+            if (is_keyboard_left() && record->event.key.row < (MATRIX_ROWS / 2)) {
                 add_to_buffer(c);
-            } else if (!is_keyboard_left() && record->event.key.col >= (MATRIX_COLS / 2)) {
+            } else if (!is_keyboard_left() && record->event.key.row >= (MATRIX_ROWS / 2)) {
                 add_to_buffer(c);
             } else {
                 if (is_keyboard_master()) {

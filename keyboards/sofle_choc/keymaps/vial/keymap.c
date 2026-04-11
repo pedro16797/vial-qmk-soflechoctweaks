@@ -101,10 +101,10 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
 
-    if (led_boost[led_index] + 32 > 255) {
+    if (led_boost[led_index] + 4 > 255) {
         led_boost[led_index] = 255;
     } else {
-        led_boost[led_index] += 32;
+        led_boost[led_index] += 4;
     }
 }
 
@@ -125,7 +125,7 @@ void keyboard_post_init_user(void) {
 
     // Initialize state
     for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-        led_boost[i] = 127;
+        led_boost[i] = 0;
         led_to_row[i] = 255;
         led_to_col[i] = 255;
     }
@@ -155,16 +155,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 void housekeeping_task_user(void) {
-    uint32_t tickLength = 30;
+    uint32_t tickLength = 200;
     uint32_t elapsed = timer_elapsed32(decay_timer);
     if (elapsed >= tickLength) {
         uint32_t ticks = elapsed / tickLength;
         decay_timer += ticks * tickLength;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-            if (led_boost[i] > 127) {
-                uint8_t delta = led_boost[i] - 127;
+            if (led_boost[i] > 0) {
+                uint8_t delta = led_boost[i];
                 if (ticks >= delta) {
-                    led_boost[i] = 127;
+                    led_boost[i] = 0;
                 } else {
                     led_boost[i] -= (uint8_t)ticks;
                 }

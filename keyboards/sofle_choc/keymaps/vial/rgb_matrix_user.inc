@@ -47,7 +47,7 @@ bool pastel_pulse(effect_params_t* params) {
 
             if ((col >= 1 && col <= 4 && row >= 1 && row <= 8 && row != 4) ||
                 (col == 5 && (row == 4 || row == 9))) {
-                rgb_matrix_set_color(i, 255, 255, 255);
+                rgb_matrix_set_color(i - local_min, 255, 255, 255);
                 continue;
             }
         }
@@ -92,7 +92,7 @@ bool pastel_pulse(effect_params_t* params) {
             final_rgb.g = lerp8(rgb_start.g, target.g, t, 31);
             final_rgb.b = lerp8(rgb_start.b, target.b, t, 31);
         }
-        rgb_matrix_set_color(i, final_rgb.r, final_rgb.g, final_rgb.b);
+        rgb_matrix_set_color(i - local_min, final_rgb.r, final_rgb.g, final_rgb.b);
     }
     return led_max < local_max;
 }

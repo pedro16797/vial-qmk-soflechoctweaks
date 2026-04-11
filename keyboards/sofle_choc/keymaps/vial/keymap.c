@@ -106,12 +106,6 @@ oled_rotation_t oled_init_user(oled_rotation_t rotation) {
     return OLED_ROTATION_270;
 }
 
-void add_to_buffer(char c) {
-    typing_buffer[typing_buffer_index].c         = c;
-    typing_buffer[typing_buffer_index].x         = rand() % 5;
-    typing_buffer[typing_buffer_index].timestamp = timer_read32();
-    typing_buffer_index                          = (typing_buffer_index + 1) % 10;
-}
 #endif
 
 typedef struct {
@@ -125,10 +119,15 @@ typedef enum {
 } rpc_type_t;
 
 typedef struct {
+    char    c;
+    uint8_t x;
+} oled_sync_t;
+
+typedef struct {
     rpc_type_t type;
     union {
-        key_hit_t hit;
-        char      c;
+        key_hit_t   hit;
+        oled_sync_t oled;
     } data;
 } rpc_queue_item_t;
 
@@ -174,11 +173,18 @@ void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* 
 }
 
 #ifdef OLED_ENABLE
+void add_to_buffer_at(char c, uint8_t x) {
+    typing_buffer[typing_buffer_index].c         = c;
+    typing_buffer[typing_buffer_index].x         = x;
+    typing_buffer[typing_buffer_index].timestamp = timer_read32();
+    typing_buffer_index                          = (typing_buffer_index + 1) % 10;
+}
+
 void oled_sync_handler(uint8_t initiator2target_length, const void* initiator2target_buffer, uint8_t target2initiator_length, void* target2initiator_buffer) {
-    if (initiator2target_length == sizeof(char)) {
-        char c;
-        memcpy(&c, initiator2target_buffer, sizeof(char));
-        add_to_buffer(c);
+    if (initiator2target_length == sizeof(oled_sync_t)) {
+        oled_sync_t data;
+        memcpy(&data, initiator2target_buffer, sizeof(oled_sync_t));
+        add_to_buffer_at(data.c, data.x);
     }
 }
 #endif
@@ -218,9 +224,14 @@ void keyboard_post_init_user(void) {
 
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
-    oled_clear();
+    // Optimization: avoid oled_clear() which is heavy on I2C/Split.
+    // Instead, we manually clear only the waterfall rows (0-11).
+    for (uint8_t r = 0; r <= 11; r++) {
+        oled_set_cursor(0, r);
+        oled_write_P(PSTR("     "), false);
+    }
 
-    // Draw separator line at 80% (approx row 12 out of 16 in 270 degree rotation)
+    // Render separator line at 80%
     oled_set_cursor(0, 12);
     oled_write_P(PSTR("-----"), false);
 
@@ -271,13 +282,14 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
 
         if (c != '\0') {
+            uint8_t x = rand() % 5;
             if (is_keyboard_left() && record->event.key.row < (MATRIX_ROWS / 2)) {
-                add_to_buffer(c);
+                add_to_buffer_at(c, x);
             } else if (!is_keyboard_left() && record->event.key.row >= (MATRIX_ROWS / 2)) {
-                add_to_buffer(c);
+                add_to_buffer_at(c, x);
             } else {
                 if (is_keyboard_master()) {
-                    rpc_queue_item_t item = {.type = RPC_OLED, .data.c = c};
+                    rpc_queue_item_t item = {.type = RPC_OLED, .data.oled = {c, x}};
                     rpc_queue_push(item);
                 }
             }
@@ -295,7 +307,7 @@ void housekeeping_task_user(void) {
                 transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(key_hit_t), &item.data.hit, 0, NULL);
             } else if (item.type == RPC_OLED) {
 #ifdef OLED_ENABLE
-                transaction_rpc_exec(OLED_SYNC, sizeof(char), &item.data.c, 0, NULL);
+                transaction_rpc_exec(OLED_SYNC, sizeof(oled_sync_t), &item.data.oled, 0, NULL);
 #endif
             }
         }

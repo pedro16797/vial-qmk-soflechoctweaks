@@ -240,6 +240,8 @@ bool oled_task_user(void) {
                     char buf[2] = {tc.c, '\0'};
                     oled_write(buf, false);
                 }
+            } else if (row < 0) {
+                typing_buffer[i].c = '\0';
             }
         }
     }

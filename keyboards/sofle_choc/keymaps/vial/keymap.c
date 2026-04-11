@@ -101,10 +101,10 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
 
-    if (led_boost[led_index] + 32 > 255) {
+    if (led_boost[led_index] + 4 > 255) {
         led_boost[led_index] = 255;
     } else {
-        led_boost[led_index] += 32;
+        led_boost[led_index] += 4;
     }
 }
 
@@ -155,7 +155,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 void housekeeping_task_user(void) {
-    uint32_t tickLength = 30;
+    uint32_t tickLength = 200;
     uint32_t elapsed = timer_elapsed32(decay_timer);
     if (elapsed >= tickLength) {
         uint32_t ticks = elapsed / tickLength;

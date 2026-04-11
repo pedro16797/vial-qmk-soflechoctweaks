@@ -224,16 +224,10 @@ void keyboard_post_init_user(void) {
 
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
-    // Optimization: avoid oled_clear() which is heavy on I2C/Split.
-    // Instead, we manually clear only the waterfall rows (0-11).
-    for (uint8_t r = 0; r <= 11; r++) {
-        oled_set_cursor(0, r);
-        oled_write_P(PSTR("     "), false);
-    }
-
-    // Render separator line at 80%
-    oled_set_cursor(0, 12);
-    oled_write_P(PSTR("-----"), false);
+    // Optimization: avoid oled_clear() or loops which are heavy on I2C/Split.
+    // Overwrite the entire waterfall area (rows 0-11) and separator (12) in one go.
+    oled_set_cursor(0, 0);
+    oled_write_P(PSTR("     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n-----"), false);
 
     for (uint8_t i = 0; i < 10; i++) {
         typing_char_t tc = typing_buffer[i];
@@ -265,8 +259,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         // Only the master initiates the boost and RPC.
         if (is_keyboard_master()) {
             apply_key_boost(record->event.key.row, record->event.key.col);
-            rpc_queue_item_t item = {.type = RPC_BOOST, .data.hit = {record->event.key.row, record->event.key.col}};
-            rpc_queue_push(item);
+            // Only queue RPC if the key is on the slave side
+            if (record->event.key.row >= (MATRIX_ROWS / 2)) {
+                rpc_queue_item_t item = {.type = RPC_BOOST, .data.hit = {record->event.key.row, record->event.key.col}};
+                rpc_queue_push(item);
+            }
         }
 
 #ifdef OLED_ENABLE

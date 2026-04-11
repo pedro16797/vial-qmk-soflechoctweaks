@@ -212,32 +212,38 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 void housekeeping_task_user(void) {
-    static matrix_row_t last_matrix[MATRIX_ROWS];
-    for (uint8_t r = 0; r < MATRIX_ROWS; r++) {
-        bool is_local_row = is_keyboard_left() ? (r < (MATRIX_ROWS / 2)) : (r >= (MATRIX_ROWS / 2));
-        if (!is_local_row) continue;
+    static uint32_t visual_scan_timer = 0;
+    if (timer_elapsed32(visual_scan_timer) >= 10) {
+        visual_scan_timer = timer_read32();
 
-        matrix_row_t current_row = matrix_get_row(r);
-        matrix_row_t diff        = current_row & ~last_matrix[r];
-        if (diff) {
-            for (uint8_t c = 0; c < MATRIX_COLS; c++) {
-                if (diff & (1 << c)) {
-                    apply_key_boost(r, c);
+        static matrix_row_t last_matrix[MATRIX_ROWS];
+        bool is_left = is_keyboard_left();
+        uint8_t r_min = is_left ? 0 : (MATRIX_ROWS / 2);
+        uint8_t r_max = is_left ? (MATRIX_ROWS / 2) : MATRIX_ROWS;
+
+        for (uint8_t r = r_min; r < r_max; r++) {
+            matrix_row_t current_row = matrix_get_row(r);
+            matrix_row_t diff        = current_row & ~last_matrix[r];
+            if (diff) {
+                for (uint8_t c = 0; c < MATRIX_COLS; c++) {
+                    if (diff & (1 << c)) {
+                        apply_key_boost(r, c);
 #ifdef OLED_ENABLE
-                    char c_ascii = 0;
-                    if (is_keyboard_left()) {
-                        c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
-                    } else {
-                        c_ascii = pgm_read_byte(&matrix_to_ascii_right[r % 5][c]);
-                    }
-                    if (c_ascii) {
-                        add_to_buffer_at(c_ascii, rand() % 5);
-                    }
+                        char c_ascii = 0;
+                        if (is_left) {
+                            c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
+                        } else {
+                            c_ascii = pgm_read_byte(&matrix_to_ascii_right[r % 5][c]);
+                        }
+                        if (c_ascii) {
+                            add_to_buffer_at(c_ascii, rand() % 5);
+                        }
 #endif
+                    }
                 }
             }
+            last_matrix[r] = current_row;
         }
-        last_matrix[r] = current_row;
     }
 
     uint32_t tickLength = 200;

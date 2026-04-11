@@ -93,6 +93,22 @@ uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 uint32_t decay_timer = 0;
 
 #ifdef OLED_ENABLE
+static const char PROGMEM matrix_to_ascii[5][6] = {
+    {0,   '1', '2', '3', '4', '5'},
+    {0,   'Q', 'W', 'E', 'R', 'T'},
+    {0,   'A', 'S', 'D', 'F', 'G'},
+    {0,   'Z', 'X', 'C', 'V', 'B'},
+    {0,   0,   0,   '_', 0,   0}
+};
+
+static const char PROGMEM matrix_to_ascii_right[5][6] = {
+    {0,   '0', '9', '8', '7', '6'},
+    {0,   'P', 'O', 'I', 'U', 'Y'},
+    {0x1B, ';', 'L', 'K', 'J', 'H'},
+    {0,   '/', '.', ',', 'M', 'N'},
+    {0,   0,   '_', 0,   0,   0}
+};
+
 typedef struct {
     char     c;
     uint8_t  x;
@@ -113,46 +129,6 @@ typedef struct {
     uint8_t col;
 } key_hit_t;
 
-typedef enum {
-    RPC_BOOST,
-    RPC_OLED
-} rpc_type_t;
-
-typedef struct {
-    char    c;
-    uint8_t x;
-} oled_sync_t;
-
-typedef struct {
-    rpc_type_t type;
-    union {
-        key_hit_t   hit;
-        oled_sync_t oled;
-    } data;
-} rpc_queue_item_t;
-
-#define RPC_QUEUE_SIZE 8
-rpc_queue_item_t rpc_queue[RPC_QUEUE_SIZE];
-uint8_t          rpc_queue_head = 0;
-uint8_t          rpc_queue_tail = 0;
-
-void rpc_queue_push(rpc_queue_item_t item) {
-    uint8_t next_head = (rpc_queue_head + 1) % RPC_QUEUE_SIZE;
-    if (next_head != rpc_queue_tail) {
-        rpc_queue[rpc_queue_head] = item;
-        rpc_queue_head            = next_head;
-    }
-}
-
-bool rpc_queue_pop(rpc_queue_item_t* item) {
-    if (rpc_queue_head == rpc_queue_tail) {
-        return false;
-    }
-    *item          = rpc_queue[rpc_queue_tail];
-    rpc_queue_tail = (rpc_queue_tail + 1) % RPC_QUEUE_SIZE;
-    return true;
-}
-
 void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
@@ -164,14 +140,6 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     }
 }
 
-void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* initiator2target_buffer, uint8_t target2initiator_length, void* target2initiator_buffer) {
-    if (initiator2target_length == sizeof(key_hit_t)) {
-        key_hit_t hit;
-        memcpy(&hit, initiator2target_buffer, sizeof(key_hit_t));
-        apply_key_boost(hit.row, hit.col);
-    }
-}
-
 #ifdef OLED_ENABLE
 void add_to_buffer_at(char c, uint8_t x) {
     typing_buffer[typing_buffer_index].c         = c;
@@ -179,24 +147,9 @@ void add_to_buffer_at(char c, uint8_t x) {
     typing_buffer[typing_buffer_index].timestamp = timer_read32();
     typing_buffer_index                          = (typing_buffer_index + 1) % 10;
 }
-
-void oled_sync_handler(uint8_t initiator2target_length, const void* initiator2target_buffer, uint8_t target2initiator_length, void* target2initiator_buffer) {
-    if (initiator2target_length == sizeof(oled_sync_t)) {
-        oled_sync_t data;
-        memcpy(&data, initiator2target_buffer, sizeof(oled_sync_t));
-        add_to_buffer_at(data.c, data.x);
-    }
-}
 #endif
 
 void keyboard_post_init_user(void) {
-    if (!is_keyboard_master()) {
-        transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
-#ifdef OLED_ENABLE
-        transaction_register_rpc(OLED_SYNC, oled_sync_handler);
-#endif
-    }
-
     decay_timer = timer_read32();
 
 #ifdef OLED_ENABLE
@@ -255,59 +208,34 @@ bool oled_task_user(void) {
 #endif
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    if (record->event.pressed) {
-        // Only the master initiates the boost and RPC.
-        if (is_keyboard_master()) {
-            apply_key_boost(record->event.key.row, record->event.key.col);
-            // Only queue RPC if the key is on the slave side
-            if (record->event.key.row >= (MATRIX_ROWS / 2)) {
-                rpc_queue_item_t item = {.type = RPC_BOOST, .data.hit = {record->event.key.row, record->event.key.col}};
-                rpc_queue_push(item);
-            }
-        }
-
-#ifdef OLED_ENABLE
-        char c = '\0';
-        if (keycode >= KC_A && keycode <= KC_Z) {
-            c = 'A' + (keycode - KC_A);
-        } else if (keycode >= KC_1 && keycode <= KC_0) {
-            c = (keycode == KC_0) ? '0' : '1' + (keycode - KC_1);
-        } else if (keycode == KC_SPACE) {
-            c = '_';
-        } else if (keycode == KC_ENTER || keycode == KC_KP_ENTER) {
-            c = 0x1B; // ↵
-        }
-
-        if (c != '\0') {
-            uint8_t x = rand() % 5;
-            if (is_keyboard_left() && record->event.key.row < (MATRIX_ROWS / 2)) {
-                add_to_buffer_at(c, x);
-            } else if (!is_keyboard_left() && record->event.key.row >= (MATRIX_ROWS / 2)) {
-                add_to_buffer_at(c, x);
-            } else {
-                if (is_keyboard_master()) {
-                    rpc_queue_item_t item = {.type = RPC_OLED, .data.oled = {c, x}};
-                    rpc_queue_push(item);
-                }
-            }
-        }
-#endif
-    }
     return true;
 }
 
 void housekeeping_task_user(void) {
-    if (is_keyboard_master()) {
-        rpc_queue_item_t item;
-        if (rpc_queue_pop(&item)) {
-            if (item.type == RPC_BOOST) {
-                transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(key_hit_t), &item.data.hit, 0, NULL);
-            } else if (item.type == RPC_OLED) {
+    static matrix_row_t last_matrix[5];
+    for (uint8_t r = 0; r < 5; r++) {
+        matrix_row_t current_row = matrix_get_row(r);
+        matrix_row_t diff        = current_row & ~last_matrix[r];
+        if (diff) {
+            for (uint8_t c = 0; c < 6; c++) {
+                if (diff & (1 << c)) {
+                    uint8_t global_r = is_keyboard_left() ? r : r + 5;
+                    apply_key_boost(global_r, c);
 #ifdef OLED_ENABLE
-                transaction_rpc_exec(OLED_SYNC, sizeof(oled_sync_t), &item.data.oled, 0, NULL);
+                    char c_ascii = 0;
+                    if (is_keyboard_left()) {
+                        c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
+                    } else {
+                        c_ascii = pgm_read_byte(&matrix_to_ascii_right[r][c]);
+                    }
+                    if (c_ascii) {
+                        add_to_buffer_at(c_ascii, rand() % 5);
+                    }
 #endif
+                }
             }
         }
+        last_matrix[r] = current_row;
     }
 
     uint32_t tickLength = 200;

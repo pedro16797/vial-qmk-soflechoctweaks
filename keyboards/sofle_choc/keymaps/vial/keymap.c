@@ -92,6 +92,38 @@ uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
 uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 uint32_t decay_timer = 0;
 
+#ifdef OLED_ENABLE
+static const char PROGMEM matrix_to_ascii[5][6] = {
+    {0,   '1', '2', '3', '4', '5'},
+    {0,   'Q', 'W', 'E', 'R', 'T'},
+    {0,   'A', 'S', 'D', 'F', 'G'},
+    {0,   'Z', 'X', 'C', 'V', 'B'},
+    {0,   0,   0,   '_', 0,   0}
+};
+
+static const char PROGMEM matrix_to_ascii_right[5][6] = {
+    {0,   '0', '9', '8', '7', '6'},
+    {0,   'P', 'O', 'I', 'U', 'Y'},
+    {0x1B, ';', 'L', 'K', 'J', 'H'},
+    {0,   '/', '.', ',', 'M', 'N'},
+    {0,   0,   0,   '_', 0,   0}
+};
+
+typedef struct {
+    char     c;
+    uint8_t  x;
+    uint32_t timestamp;
+} typing_char_t;
+
+typing_char_t typing_buffer[10];
+uint8_t       typing_buffer_index = 0;
+
+oled_rotation_t oled_init_user(oled_rotation_t rotation) {
+    return OLED_ROTATION_270;
+}
+
+#endif
+
 typedef struct {
     uint8_t row;
     uint8_t col;
@@ -108,20 +140,21 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     }
 }
 
-void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* initiator2target_buffer, uint8_t target2initiator_length, void* target2initiator_buffer) {
-    if (initiator2target_length == sizeof(key_hit_t)) {
-        key_hit_t hit;
-        memcpy(&hit, initiator2target_buffer, sizeof(key_hit_t));
-        apply_key_boost(hit.row, hit.col);
-    }
+#ifdef OLED_ENABLE
+void add_to_buffer_at(char c, uint8_t x) {
+    typing_buffer[typing_buffer_index].c         = c;
+    typing_buffer[typing_buffer_index].x         = x;
+    typing_buffer[typing_buffer_index].timestamp = timer_read32();
+    typing_buffer_index                          = (typing_buffer_index + 1) % 10;
 }
+#endif
 
 void keyboard_post_init_user(void) {
-    if (!is_keyboard_master()) {
-        transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
-    }
-
     decay_timer = timer_read32();
+
+#ifdef OLED_ENABLE
+    srand(timer_read32());
+#endif
 
     // Initialize state
     for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
@@ -142,19 +175,71 @@ void keyboard_post_init_user(void) {
     }
 }
 
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    if (record->event.pressed) {
-        // Only the master initiates the boost and RPC.
-        if (is_keyboard_master()) {
-            apply_key_boost(record->event.key.row, record->event.key.col);
-            key_hit_t hit = {record->event.key.row, record->event.key.col};
-            transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(hit), &hit, 0, NULL);
+#ifdef OLED_ENABLE
+bool oled_task_user(void) {
+    // Optimization: avoid oled_clear() or loops which are heavy on I2C/Split.
+    // Overwrite the entire waterfall area (rows 0-11) and separator (12) in one go.
+    oled_set_cursor(0, 0);
+    oled_write_P(PSTR("     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n-----"), false);
+
+    for (uint8_t i = 0; i < 10; i++) {
+        typing_char_t tc = typing_buffer[i];
+        if (tc.c != '\0') {
+            uint32_t elapsed = timer_elapsed32(tc.timestamp);
+            // Sliding up effect: Start at row 11 and slide towards row 0.
+            // Speed: 1 row per 150ms
+            int8_t row = 11 - (elapsed / 150);
+
+            if (row >= 0 && row <= 11) {
+                oled_set_cursor(tc.x, (uint8_t)row);
+                if (tc.c == 0x1B) {
+                    oled_write_P(PSTR("\x1B"), false);
+                } else {
+                    char buf[2] = {tc.c, '\0'};
+                    oled_write(buf, false);
+                }
+            } else if (row < 0) {
+                typing_buffer[i].c = '\0';
+            }
         }
     }
+    return false;
+}
+#endif
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
 void housekeeping_task_user(void) {
+    static matrix_row_t last_matrix[MATRIX_ROWS];
+    for (uint8_t r = 0; r < MATRIX_ROWS; r++) {
+        bool is_local_row = is_keyboard_left() ? (r < (MATRIX_ROWS / 2)) : (r >= (MATRIX_ROWS / 2));
+        if (!is_local_row) continue;
+
+        matrix_row_t current_row = matrix_get_row(r);
+        matrix_row_t diff        = current_row & ~last_matrix[r];
+        if (diff) {
+            for (uint8_t c = 0; c < MATRIX_COLS; c++) {
+                if (diff & (1 << c)) {
+                    apply_key_boost(r, c);
+#ifdef OLED_ENABLE
+                    char c_ascii = 0;
+                    if (is_keyboard_left()) {
+                        c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
+                    } else {
+                        c_ascii = pgm_read_byte(&matrix_to_ascii_right[r % 5][c]);
+                    }
+                    if (c_ascii) {
+                        add_to_buffer_at(c_ascii, rand() % 5);
+                    }
+#endif
+                }
+            }
+        }
+        last_matrix[r] = current_row;
+    }
+
     uint32_t tickLength = 200;
     uint32_t elapsed = timer_elapsed32(decay_timer);
     if (elapsed >= tickLength) {

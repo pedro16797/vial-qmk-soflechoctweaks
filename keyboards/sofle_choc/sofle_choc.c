@@ -28,11 +28,15 @@ static void render_logo(void) {
     oled_write_P(qmk_logo, false);
 }
 
+__attribute__((weak)) oled_rotation_t oled_init_user(oled_rotation_t rotation) {
+    return rotation;
+}
+
 oled_rotation_t oled_init_kb(oled_rotation_t rotation) {
     if (is_keyboard_master()) {
-        return OLED_ROTATION_180;
+        return oled_init_user(OLED_ROTATION_180);
     }
-    return rotation;
+    return oled_init_user(rotation);
 }
 
 bool oled_task_kb(void) {

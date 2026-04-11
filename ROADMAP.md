@@ -32,7 +32,7 @@
     * Calculate the radial distance of each LED from the origin.
     * Output a high-Value, low-Saturation color based on the base brightness (127) + `boost_brightness`.
 
-## Sprint 3: The OLED "Waterfall" System [Pending]
+## Sprint 3: The OLED "Waterfall" System [Completed]
 **Goal:** Create a visual, falling character buffer on the dual displays that respects the split handedness.
 
 * **3.1 Enable OLED Drivers:**

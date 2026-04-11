@@ -106,7 +106,7 @@ static const char PROGMEM matrix_to_ascii_right[5][6] = {
     {0,   'P', 'O', 'I', 'U', 'Y'},
     {0x1B, ';', 'L', 'K', 'J', 'H'},
     {0,   '/', '.', ',', 'M', 'N'},
-    {0,   0,   '_', 0,   0,   0}
+    {0,   0,   0,   '_', 0,   0}
 };
 
 typedef struct {
@@ -212,21 +212,23 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 void housekeeping_task_user(void) {
-    static matrix_row_t last_matrix[5];
-    for (uint8_t r = 0; r < 5; r++) {
+    static matrix_row_t last_matrix[MATRIX_ROWS];
+    for (uint8_t r = 0; r < MATRIX_ROWS; r++) {
+        bool is_local_row = is_keyboard_left() ? (r < (MATRIX_ROWS / 2)) : (r >= (MATRIX_ROWS / 2));
+        if (!is_local_row) continue;
+
         matrix_row_t current_row = matrix_get_row(r);
         matrix_row_t diff        = current_row & ~last_matrix[r];
         if (diff) {
-            for (uint8_t c = 0; c < 6; c++) {
+            for (uint8_t c = 0; c < MATRIX_COLS; c++) {
                 if (diff & (1 << c)) {
-                    uint8_t global_r = is_keyboard_left() ? r : r + 5;
-                    apply_key_boost(global_r, c);
+                    apply_key_boost(r, c);
 #ifdef OLED_ENABLE
                     char c_ascii = 0;
                     if (is_keyboard_left()) {
                         c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
                     } else {
-                        c_ascii = pgm_read_byte(&matrix_to_ascii_right[r][c]);
+                        c_ascii = pgm_read_byte(&matrix_to_ascii_right[r % 5][c]);
                     }
                     if (c_ascii) {
                         add_to_buffer_at(c_ascii, rand() % 5);

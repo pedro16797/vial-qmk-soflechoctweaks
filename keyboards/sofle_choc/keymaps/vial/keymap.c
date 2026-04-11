@@ -189,8 +189,6 @@ bool oled_task_user(void) {
     oled_set_cursor(0, 12);
     oled_write_P(PSTR("-----"), false);
 
-    uint32_t current_time = timer_read32();
-
     for (uint8_t i = 0; i < 10; i++) {
         typing_char_t tc = typing_buffer[i];
         if (tc.c != '\0') {

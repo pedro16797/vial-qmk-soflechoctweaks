@@ -92,6 +92,20 @@ uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
 uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 uint32_t decay_timer = 0;
 
+#ifdef OLED_ENABLE
+char typing_buffer[10];
+uint8_t typing_buffer_index = 0;
+
+oled_rotation_t oled_init_user(oled_rotation_t rotation) {
+    return OLED_ROTATION_270;
+}
+
+void add_to_buffer(char c) {
+    typing_buffer[typing_buffer_index] = c;
+    typing_buffer_index = (typing_buffer_index + 1) % 10;
+}
+#endif
+
 typedef struct {
     uint8_t row;
     uint8_t col;
@@ -116,9 +130,22 @@ void boost_brightness_sync_handler(uint8_t initiator2target_length, const void* 
     }
 }
 
+#ifdef OLED_ENABLE
+void oled_sync_handler(uint8_t initiator2target_length, const void* initiator2target_buffer, uint8_t target2initiator_length, void* target2initiator_buffer) {
+    if (initiator2target_length == sizeof(char)) {
+        char c;
+        memcpy(&c, initiator2target_buffer, sizeof(char));
+        add_to_buffer(c);
+    }
+}
+#endif
+
 void keyboard_post_init_user(void) {
     if (!is_keyboard_master()) {
         transaction_register_rpc(BOOST_BRIGHTNESS_SYNC, boost_brightness_sync_handler);
+#ifdef OLED_ENABLE
+        transaction_register_rpc(OLED_SYNC, oled_sync_handler);
+#endif
     }
 
     decay_timer = timer_read32();
@@ -142,6 +169,26 @@ void keyboard_post_init_user(void) {
     }
 }
 
+#ifdef OLED_ENABLE
+bool oled_task_user(void) {
+    for (uint8_t i = 0; i < 10; i++) {
+        uint8_t index = (typing_buffer_index + i) % 10;
+        char c = typing_buffer[index];
+        if (c != '\0') {
+            if (c == 0x1B) {
+                oled_write_P(PSTR("\x1B\n"), false);
+            } else {
+                char buf[3] = {c, '\n', '\0'};
+                oled_write(buf, false);
+            }
+        } else {
+            oled_write_P(PSTR("\n"), false);
+        }
+    }
+    return false;
+}
+#endif
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
         // Only the master initiates the boost and RPC.
@@ -150,6 +197,31 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             key_hit_t hit = {record->event.key.row, record->event.key.col};
             transaction_rpc_exec(BOOST_BRIGHTNESS_SYNC, sizeof(hit), &hit, 0, NULL);
         }
+
+#ifdef OLED_ENABLE
+        char c = '\0';
+        if (keycode >= KC_A && keycode <= KC_Z) {
+            c = 'A' + (keycode - KC_A);
+        } else if (keycode >= KC_1 && keycode <= KC_0) {
+            c = (keycode == KC_0) ? '0' : '1' + (keycode - KC_1);
+        } else if (keycode == KC_SPACE) {
+            c = '_';
+        } else if (keycode == KC_ENTER || keycode == KC_KP_ENTER) {
+            c = 0x1B; // ↵
+        }
+
+        if (c != '\0') {
+            if (is_keyboard_left() && record->event.key.col < (MATRIX_COLS / 2)) {
+                add_to_buffer(c);
+            } else if (!is_keyboard_left() && record->event.key.col >= (MATRIX_COLS / 2)) {
+                add_to_buffer(c);
+            } else {
+                if (is_keyboard_master()) {
+                    transaction_rpc_exec(OLED_SYNC, sizeof(char), &c, 0, NULL);
+                }
+            }
+        }
+#endif
     }
     return true;
 }

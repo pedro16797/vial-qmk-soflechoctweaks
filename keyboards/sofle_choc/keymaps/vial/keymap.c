@@ -93,16 +93,24 @@ uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 uint32_t decay_timer = 0;
 
 #ifdef OLED_ENABLE
-char typing_buffer[10];
-uint8_t typing_buffer_index = 0;
+typedef struct {
+    char     c;
+    uint8_t  x;
+    uint32_t timestamp;
+} typing_char_t;
+
+typing_char_t typing_buffer[10];
+uint8_t       typing_buffer_index = 0;
 
 oled_rotation_t oled_init_user(oled_rotation_t rotation) {
     return OLED_ROTATION_270;
 }
 
 void add_to_buffer(char c) {
-    typing_buffer[typing_buffer_index] = c;
-    typing_buffer_index = (typing_buffer_index + 1) % 10;
+    typing_buffer[typing_buffer_index].c         = c;
+    typing_buffer[typing_buffer_index].x         = rand() % 5;
+    typing_buffer[typing_buffer_index].timestamp = timer_read32();
+    typing_buffer_index                          = (typing_buffer_index + 1) % 10;
 }
 #endif
 
@@ -150,6 +158,10 @@ void keyboard_post_init_user(void) {
 
     decay_timer = timer_read32();
 
+#ifdef OLED_ENABLE
+    srand(timer_read32());
+#endif
+
     // Initialize state
     for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
         led_boost[i] = 0;
@@ -171,19 +183,31 @@ void keyboard_post_init_user(void) {
 
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
-    oled_set_cursor(0, 0);
+    oled_clear();
+
+    // Draw separator line at 80% (approx row 12 out of 16 in 270 degree rotation)
+    oled_set_cursor(0, 12);
+    oled_write_P(PSTR("-----"), false);
+
+    uint32_t current_time = timer_read32();
+
     for (uint8_t i = 0; i < 10; i++) {
-        uint8_t index = (typing_buffer_index + i) % 10;
-        char c = typing_buffer[index];
-        if (c != '\0') {
-            if (c == 0x1B) {
-                oled_write_P(PSTR("\x1B\n"), false);
-            } else {
-                char buf[3] = {c, '\n', '\0'};
-                oled_write(buf, false);
+        typing_char_t tc = typing_buffer[i];
+        if (tc.c != '\0') {
+            uint32_t elapsed = timer_elapsed32(tc.timestamp);
+            // Sliding up effect: Start at row 11 and slide towards row 0.
+            // Speed: 1 row per 150ms
+            int8_t row = 11 - (elapsed / 150);
+
+            if (row >= 0 && row <= 11) {
+                oled_set_cursor(tc.x, (uint8_t)row);
+                if (tc.c == 0x1B) {
+                    oled_write_P(PSTR("\x1B"), false);
+                } else {
+                    char buf[2] = {tc.c, '\0'};
+                    oled_write(buf, false);
+                }
             }
-        } else {
-            oled_write_P(PSTR("\n"), false);
         }
     }
     return false;

@@ -177,6 +177,26 @@ void keyboard_post_init_user(void) {
 
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
+    static bool screen_cleared = false;
+    bool        any_active     = false;
+    for (uint8_t i = 0; i < 10; i++) {
+        if (typing_buffer[i].c != '\0') {
+            any_active = true;
+            break;
+        }
+    }
+
+    if (!any_active) {
+        if (!screen_cleared) {
+            oled_clear();
+            screen_cleared = true;
+            return true;
+        }
+        return false;
+    }
+
+    screen_cleared = false;
+
     // Optimization: avoid oled_clear() or loops which are heavy on I2C/Split.
     // Overwrite the entire waterfall area (rows 0-11) and separator (12) in one go.
     oled_set_cursor(0, 0);

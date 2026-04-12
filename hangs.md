@@ -1,11 +1,11 @@
 # Analysis of Firmware Hangs and Performance
 
 ## Current State
-As of the completion of Sprint 3, the "Pastel Pulse" RGB engine and the "Waterfall" OLED system are visually functional and logically independent on both halves of the split keyboard. However, the system still suffers from intermittent "hangs" where keystrokes are delayed or repeated for approximately one second.
+As of the completion of the Performance Optimization phase (Post-Sprint 3), the system has been improved by throttling housekeeping tasks and increasing I2C clock speeds to 400kHz. However, the slave (right) half still experiences intermittent hangs where it stops sending key inputs while the OLED continues to update.
 
-## Possible Causes
+## Possible Causes (Updated)
 
-### 1. I2C/Split Bus Saturation
+### 1. I2C/Split Bus Saturation (Contention)
 Even though visual-related RPC traffic has been eliminated, QMK's standard split transport (syncing matrix state, layer state, and modifiers) still consumes significant bandwidth.
 *   **Contention:** If the OLED driver (which also uses I2C) or custom matrix scanning logic blocks the main loop for too long, the split synchronization window might be missed, leading to retries and input lag.
 *   **I2C Blocking:** Standard QMK OLED writes are often blocking. A single `oled_write_P` call for a large multiline string, while efficient in terms of transaction count, still holds the bus for several milliseconds.
@@ -21,10 +21,10 @@ The `pastel_pulse` effect performs linear interpolation and floating-point-like 
 
 ## Potential Measures for Fixes
 
-*   **Move Matrix Scanning to Interupts:** Ensure that the primary matrix scan has absolute priority over visual tasks.
-*   **Throttle Visual Tasks:** Move the shadow matrix scan for visuals out of the high-frequency main loop and into a slower, time-gated task (e.g., every 5-10ms).
-*   **Optimize OLED Clearing:** Use a local double-buffer for the OLED and only send the "dirty" pixels/rows to the hardware to minimize I2C traffic.
-*   **Hardware I2C:** Ensure the RP2040 is using its hardware I2C peripheral at 400kHz or 1MHz, rather than bit-banged software I2C.
+*   **[DONE] Throttle Visual Tasks:** Shadow matrix scan moved to a 10ms gate in `housekeeping_task_user`.
+*   **[DONE] Hardware I2C Speed:** Increased to 400kHz via `I2C1_CLOCK_SPEED`.
+*   **State-Based OLED Throttling:** The OLED task should yield immediately if no animation is active, rather than overwriting the buffer with blanks every frame.
+*   **Global FPS Throttling:** Explicitly limit RGB and OLED refresh rates to provide more bandwidth for split transport.
 
 ## Hierarchy of Compromises
 To ensure the keyboard remains a reliable input device, we must adhere to the following priority hierarchy:

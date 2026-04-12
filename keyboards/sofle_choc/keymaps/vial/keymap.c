@@ -115,7 +115,7 @@ typedef struct {
     uint32_t timestamp;
 } typing_char_t;
 
-typing_char_t typing_buffer[10];
+typing_char_t typing_buffer[16];
 uint8_t       typing_buffer_index = 0;
 
 oled_rotation_t oled_init_user(oled_rotation_t rotation) {
@@ -145,16 +145,12 @@ void add_to_buffer_at(char c, uint8_t x) {
     typing_buffer[typing_buffer_index].c         = c;
     typing_buffer[typing_buffer_index].x         = x;
     typing_buffer[typing_buffer_index].timestamp = timer_read32();
-    typing_buffer_index                          = (typing_buffer_index + 1) % 10;
+    typing_buffer_index                          = (typing_buffer_index + 1) & 0x0F;
 }
 #endif
 
 void keyboard_post_init_user(void) {
     decay_timer = timer_read32();
-
-#ifdef OLED_ENABLE
-    srand(timer_read32());
-#endif
 
     // Initialize state
     for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
@@ -178,8 +174,18 @@ void keyboard_post_init_user(void) {
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
     static bool screen_cleared = false;
-    bool        any_active     = false;
-    for (uint8_t i = 0; i < 10; i++) {
+
+    if (!host_keyboard_led_state().caps_lock) {
+        if (!screen_cleared) {
+            oled_clear();
+            screen_cleared = true;
+            return true;
+        }
+        return false;
+    }
+
+    bool any_active = false;
+    for (uint8_t i = 0; i < 16; i++) {
         if (typing_buffer[i].c != '\0') {
             any_active = true;
             break;
@@ -202,13 +208,13 @@ bool oled_task_user(void) {
     oled_set_cursor(0, 0);
     oled_write_P(PSTR("     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n-----"), false);
 
-    for (uint8_t i = 0; i < 10; i++) {
+    for (uint8_t i = 0; i < 16; i++) {
         typing_char_t tc = typing_buffer[i];
         if (tc.c != '\0') {
             uint32_t elapsed = timer_elapsed32(tc.timestamp);
             // Sliding up effect: Start at row 11 and slide towards row 0.
-            // Speed: 1 row per 150ms
-            int8_t row = 11 - (elapsed / 150);
+            // Speed: 1 row per 150ms. Approximation: * 437 >> 16
+            int8_t row = 11 - (int8_t)((elapsed * 437) >> 16);
 
             if (row >= 0 && row <= 11) {
                 oled_set_cursor(tc.x, (uint8_t)row);
@@ -238,8 +244,8 @@ void housekeeping_task_user(void) {
 
         static matrix_row_t last_matrix[MATRIX_ROWS];
         bool is_left = is_keyboard_left();
-        uint8_t r_min = is_left ? 0 : (MATRIX_ROWS / 2);
-        uint8_t r_max = is_left ? (MATRIX_ROWS / 2) : MATRIX_ROWS;
+        uint8_t r_min = is_left ? 0 : 5;
+        uint8_t r_max = is_left ? 5 : 10;
 
         for (uint8_t r = r_min; r < r_max; r++) {
             matrix_row_t current_row = matrix_get_row(r);
@@ -253,10 +259,10 @@ void housekeeping_task_user(void) {
                         if (is_left) {
                             c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
                         } else {
-                            c_ascii = pgm_read_byte(&matrix_to_ascii_right[r % 5][c]);
+                            c_ascii = pgm_read_byte(&matrix_to_ascii_right[r - 5][c]);
                         }
                         if (c_ascii) {
-                            add_to_buffer_at(c_ascii, rand() % 5);
+                            add_to_buffer_at(c_ascii, (uint8_t)(timer_read32() & 0x03));
                         }
 #endif
                     }
@@ -266,11 +272,11 @@ void housekeeping_task_user(void) {
         }
     }
 
-    uint32_t tickLength = 200;
+    uint32_t tickLength = 256;
     uint32_t elapsed = timer_elapsed32(decay_timer);
     if (elapsed >= tickLength) {
-        uint32_t ticks = elapsed / tickLength;
-        decay_timer += ticks * tickLength;
+        uint32_t ticks = elapsed >> 8;
+        decay_timer += ticks << 8;
         for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
             if (led_boost[i] > 0) {
                 uint8_t delta = led_boost[i];

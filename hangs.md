@@ -23,8 +23,11 @@ The `pastel_pulse` effect performs linear interpolation and floating-point-like 
 
 *   **[DONE] Throttle Visual Tasks:** Shadow matrix scan moved to a 10ms gate in `housekeeping_task_user`.
 *   **[DONE] Hardware I2C Speed:** Increased to 400kHz via `I2C1_CLOCK_SPEED`.
-*   **State-Based OLED Throttling:** The OLED task should yield immediately if no animation is active, rather than overwriting the buffer with blanks every frame.
-*   **Global FPS Throttling:** Explicitly limit RGB and OLED refresh rates to provide more bandwidth for split transport.
+*   **[DONE] State-Based OLED Throttling:** The OLED task yields immediately if no animation is active.
+*   **[DONE] Global FPS Throttling:** RGB Matrix capped at 30 FPS, OLED at 12.5 FPS.
+*   **[DONE] Bitwise Math:** Replaced all divisions with bit-shifts or fixed-point approximations.
+*   **[DONE] RNG Removal:** Replaced expensive `rand()` calls with `timer_read32()` based entropy.
+*   **[TESTING] OLED Toggle:** Display now only active when CAPS LOCK is enabled to isolate I2C bus impact.
 
 ## Hierarchy of Compromises
 To ensure the keyboard remains a reliable input device, we must adhere to the following priority hierarchy:

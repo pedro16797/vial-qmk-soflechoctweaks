@@ -115,7 +115,7 @@ typedef struct {
     uint32_t timestamp;
 } typing_char_t;
 
-typing_char_t typing_buffer[16];
+typing_char_t typing_buffer[32];
 uint8_t       typing_buffer_index = 0;
 
 oled_rotation_t oled_init_user(oled_rotation_t rotation) {
@@ -145,7 +145,7 @@ void add_to_buffer_at(char c, uint8_t x) {
     typing_buffer[typing_buffer_index].c         = c;
     typing_buffer[typing_buffer_index].x         = x;
     typing_buffer[typing_buffer_index].timestamp = timer_read32();
-    typing_buffer_index                          = (typing_buffer_index + 1) & 0x0F;
+    typing_buffer_index                          = (typing_buffer_index + 1) & 0x1F;
 }
 #endif
 
@@ -173,19 +173,15 @@ void keyboard_post_init_user(void) {
 
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
-    static bool screen_cleared = false;
-
-    if (!host_keyboard_led_state().caps_lock) {
-        if (!screen_cleared) {
-            oled_clear();
-            screen_cleared = true;
-            return true;
-        }
+    if (!is_keyboard_master()) {
+        oled_set_cursor(0, 0);
+        oled_write_P(PSTR("SLAVE"), false);
         return false;
     }
 
+    static bool screen_cleared = false;
     bool any_active = false;
-    for (uint8_t i = 0; i < 16; i++) {
+    for (uint8_t i = 0; i < 32; i++) {
         if (typing_buffer[i].c != '\0') {
             any_active = true;
             break;
@@ -204,11 +200,11 @@ bool oled_task_user(void) {
     screen_cleared = false;
 
     // Optimization: avoid oled_clear() or loops which are heavy on I2C/Split.
-    // Overwrite the entire waterfall area (rows 0-11) and separator (12) in one go.
+    // Overwrite the entire waterfall area (rows 0-12) in one go.
     oled_set_cursor(0, 0);
-    oled_write_P(PSTR("     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n-----"), false);
+    oled_write_P(PSTR("     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     "), false);
 
-    for (uint8_t i = 0; i < 16; i++) {
+    for (uint8_t i = 0; i < 32; i++) {
         typing_char_t tc = typing_buffer[i];
         if (tc.c != '\0') {
             uint32_t elapsed = timer_elapsed32(tc.timestamp);
@@ -234,6 +230,21 @@ bool oled_task_user(void) {
 #endif
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+#ifdef OLED_ENABLE
+    if (is_keyboard_master() && record->event.pressed) {
+        uint8_t r = record->event.key.row;
+        uint8_t c = record->event.key.col;
+        char    c_ascii = 0;
+        if (r < 5) {
+            c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
+        } else {
+            c_ascii = pgm_read_byte(&matrix_to_ascii_right[r - 5][c]);
+        }
+        if (c_ascii) {
+            add_to_buffer_at(c_ascii, (uint8_t)(timer_read32() & 0x03));
+        }
+    }
+#endif
     return true;
 }
 
@@ -254,17 +265,6 @@ void housekeeping_task_user(void) {
                 for (uint8_t c = 0; c < MATRIX_COLS; c++) {
                     if (diff & (1 << c)) {
                         apply_key_boost(r, c);
-#ifdef OLED_ENABLE
-                        char c_ascii = 0;
-                        if (is_left) {
-                            c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
-                        } else {
-                            c_ascii = pgm_read_byte(&matrix_to_ascii_right[r - 5][c]);
-                        }
-                        if (c_ascii) {
-                            add_to_buffer_at(c_ascii, (uint8_t)(timer_read32() & 0x03));
-                        }
-#endif
                     }
                 }
             }

@@ -125,7 +125,45 @@ oled_rotation_t oled_init_user(oled_rotation_t rotation) {
 }
 
 static void render_status_slave(void) {
-    // Framework for future slave-side status rendering
+    static layer_state_t last_layer_state = 0;
+    static uint8_t       last_mods        = 0;
+    static bool          last_caps        = false;
+    static bool          first_run        = true;
+
+    layer_state_t current_layer_state = layer_state;
+    uint8_t       current_mods        = get_mods();
+#ifdef ONESHOT_ENABLE
+    current_mods |= get_oneshot_mods();
+#endif
+    bool current_caps = host_keyboard_led_state().caps_lock;
+
+    if (!first_run && current_layer_state == last_layer_state && current_mods == last_mods && current_caps == last_caps) {
+        return;
+    }
+
+    last_layer_state = current_layer_state;
+    last_mods        = current_mods;
+    last_caps        = current_caps;
+    first_run        = false;
+
+    oled_set_cursor(0, 0);
+    oled_write_P(PSTR("LYR:\n"), false);
+    switch (get_highest_layer(current_layer_state)) {
+        case _QWERTY: oled_write_P(PSTR("BASE\n"), false); break;
+        case _LOWER:  oled_write_P(PSTR("LOWR\n"), false); break;
+        case _RAISE:  oled_write_P(PSTR("RAIS\n"), false); break;
+        case _ADJUST: oled_write_P(PSTR("ADJT\n"), false); break;
+        default:      oled_write_P(PSTR("UNDF\n"), false); break;
+    }
+
+    oled_write_P(PSTR("\nMODS:\n"), false);
+    oled_write_P((current_mods & MOD_MASK_SHIFT) ? PSTR("SHFT\n") : PSTR("    \n"), false);
+    oled_write_P((current_mods & MOD_MASK_CTRL) ? PSTR("CTRL\n") : PSTR("    \n"), false);
+    oled_write_P((current_mods & MOD_MASK_ALT) ? PSTR("ALT \n") : PSTR("    \n"), false);
+    oled_write_P((current_mods & MOD_MASK_GUI) ? PSTR("GUI \n") : PSTR("    \n"), false);
+
+    oled_write_P(PSTR("\nLCK:\n"), false);
+    oled_write_P(current_caps ? PSTR("CAPS\n") : PSTR("    \n"), false);
 }
 
 #endif
@@ -182,10 +220,9 @@ bool oled_task_user(void) {
     static bool is_on = false;
 
     if (!is_keyboard_master()) {
-        if (is_on) {
-            oled_clear();
-            oled_off();
-            is_on = false;
+        if (!is_on) {
+            oled_on();
+            is_on = true;
         }
         render_status_slave();
         return false;

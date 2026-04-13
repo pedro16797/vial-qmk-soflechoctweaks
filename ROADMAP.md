@@ -33,7 +33,7 @@
     * Output a high-Value, low-Saturation color based on the base brightness (127) + `boost_brightness`.
 
 ## Sprint 3: The OLED "Waterfall" System [Completed]
-**Goal:** Create a visual, falling character buffer on the dual displays that respects the split handedness.
+**Goal:** Create a visual, falling character buffer on the master display that respects the split handedness.
 
 * **3.1 Enable OLED Drivers:**
     * Modify `rules.mk` to include `OLED_ENABLE = yes`.
@@ -42,25 +42,21 @@
 * **3.3 Build the Data Structures:**
     * In `keymap.c`, create a circular character buffer array (e.g., `char typing_buffer[10];`) and a tracking index.
 * **3.4 Intercept Keystrokes & Handedness:**
-    * In `process_record_user()`, add logic to convert standard keycodes (A-Z, 0-9) to their ASCII equivalents.
-    * Wrap this logic in an `is_keyboard_left()` check so characters only push to the buffer of the half that typed them.
+    * In `process_record_user()`, add logic on the master side to convert standard keycodes (A-Z, 0-9) to their ASCII equivalents for keystrokes from both halves.
     * Map `KC_SPACE` to `_` and `KC_ENTER` to `↵`.
 * **3.5 Implement the Render Loop:**
     * In `keymap.c` within `oled_task_user()`, write the loop that iterates through `typing_buffer` and prints the characters vertically.
 
-## Sprint 4: Status UI & Aesthetic Polish [Pending]
-**Goal:** Reserve screen real estate on the OLEDs to display vital keyboard state information clearly.
+## Sprint 4: Status UI & Aesthetic Polish [Completed]
+**Goal:** Implement a dedicated status display on the slave OLED to monitor keyboard state without impacting performance.
 
-* **4.1 Define the Status Zone:**
-    * In `oled_task_user()`, define a fixed rendering boundary (e.g., the top 8 pixels of the rotated screen) dedicated to status, ensuring the waterfall buffer renders *below* this line.
-* **4.2 Implement Caps Lock Host Check:**
-    * Use `host_keyboard_led_state().caps_lock` to check if Caps Lock is active.
-    * Draw a stylized "CAPS" block or icon if true; leave blank if false.
-* **4.3 Implement Layer State Polling:**
-    * Use `get_highest_layer(layer_state)` to determine the active layer.
-* **4.4 Draw Layer Graphics:**
-    * Create a `switch` statement based on the layer state.
-    * Draw the designated aesthetic graphic (Base, MO1, MO2, MO3). *Recommendation: Use custom hex bitmaps for a cleaner look than standard text.*
+* **4.1 Define the Slave Status Logic:**
+    * In `oled_task_user()`, separate master and slave rendering paths. Ensure the slave OLED stays on and calls its own status rendering function.
+* **4.2 Implement Modifier Synchronization:**
+    * Modify `config.h` to add `#define SPLIT_MODS_ENABLE` to ensure the slave half has access to current modifier states.
+* **4.3 Implement Status Polling & Rendering:**
+    * In `render_status_slave()`, implement state-change detection to minimize I2C traffic.
+    * Display Active Layer, held Modifiers (Shift, Ctrl, Alt, Gui), and Lock states (Caps Lock).
 
 ## Sprint 5: Build Automation & CI/CD [Pending]
 **Goal:** Containerize the build process to eliminate local dependency issues and automate compilation on GitHub.

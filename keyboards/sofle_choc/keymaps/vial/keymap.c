@@ -250,7 +250,6 @@ bool oled_task_user(void) {
     if (!is_keyboard_master()) {
         if (render_status_slave()) {
             oled_on();
-            return true;
         }
         return false;
     }

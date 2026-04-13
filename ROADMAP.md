@@ -56,8 +56,8 @@
     * Modify `config.h` to add `#define SPLIT_MODS_ENABLE` to ensure the slave half has access to current modifier states.
 * **4.3 Implement Status Polling & Rendering:**
     * In `render_status_slave()`, implement state-change detection to minimize I2C traffic.
-    * Display Active Layer, held Modifiers (Shift, Ctrl, Alt, Gui), and Lock states (Caps Lock) using a modular graphical asset system for a cleaner and more maintainable aesthetic.
-    * Integrated a Python-based image tool to allow editing status graphics as standard `.bmp` files in editors like GIMP.
+    * Display Active Layer, held Modifiers (Shift, Ctrl, Alt, Gui), and Lock states (Caps Lock) using a high-fidelity modular graphical asset system (32x32 and 32x12 icons) for a professional sci-fi aesthetic.
+    * Integrated a Python-based image tool to allow editing status graphics as standard `.bmp` files in editors like GIMP, supporting arbitrary icon dimensions.
 
 ## Sprint 5: Build Automation & CI/CD [Pending]
 **Goal:** Containerize the build process to eliminate local dependency issues and automate compilation on GitHub.

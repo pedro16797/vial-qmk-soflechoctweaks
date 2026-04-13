@@ -17,23 +17,18 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "assets/hdr_layer.h"
-#include "assets/hdr_mods.h"
-#include "assets/hdr_locks.h"
-#include "assets/lyr_default.h"
-#include "assets/lyr_raise_lower.h"
+#include "assets/lyr_qwerty.h"
+#include "assets/lyr_lower.h"
+#include "assets/lyr_raise.h"
 #include "assets/lyr_adjust.h"
-#include "assets/mod_shift_on.h"
-#include "assets/mod_shift_off.h"
-#include "assets/mod_ctrl_on.h"
-#include "assets/mod_ctrl_off.h"
-#include "assets/mod_alt_on.h"
-#include "assets/mod_alt_off.h"
-#include "assets/mod_gui_on.h"
-#include "assets/mod_gui_off.h"
+#include "assets/mod_shift.h"
+#include "assets/mod_ctrl.h"
+#include "assets/mod_alt.h"
+#include "assets/mod_gui.h"
 #include "assets/lock_caps_on.h"
 #include "assets/lock_caps_off.h"
-#include "assets/img_empty.h"
+#include "assets/img_empty_32.h"
+#include "assets/img_empty_12.h"
 
 #ifdef SPLIT_KEYBOARD
 #    include "quantum/split_common/transactions.h"
@@ -164,32 +159,57 @@ static bool render_status_slave(void) {
     last_caps        = current_caps;
     first_run        = false;
 
+    // Layer Icon (32x32) at y=0
     oled_set_cursor(0, 0);
-    oled_write_raw_P(img_hdr_layer, sizeof(img_hdr_layer));
-    oled_set_cursor(0, 1);
     switch (get_highest_layer(current_layer_state)) {
-        case _QWERTY: oled_write_raw_P(img_lyr_default, sizeof(img_lyr_default)); break;
-        case _LOWER:
-        case _RAISE:  oled_write_raw_P(img_lyr_raise_lower, sizeof(img_lyr_raise_lower)); break;
-        case _ADJUST: oled_write_raw_P(img_lyr_adjust, sizeof(img_lyr_adjust)); break;
-        default:      oled_write_raw_P(img_empty, sizeof(img_empty)); break;
+        case _QWERTY: oled_write_raw_P(img_lyr_qwerty, 128); break;
+        case _LOWER:  oled_write_raw_P(img_lyr_lower, 128); break;
+        case _RAISE:  oled_write_raw_P(img_lyr_raise, 128); break;
+        case _ADJUST: oled_write_raw_P(img_lyr_adjust, 128); break;
+        default:      oled_write_raw_P(img_empty_32, 128); break;
     }
 
-    oled_set_cursor(0, 3);
-    oled_write_raw_P(img_hdr_mods, sizeof(img_hdr_mods));
-    oled_set_cursor(0, 4);
-    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift_on : img_mod_shift_off, sizeof(img_empty));
+    // Modifiers (32x12 each) starting at y=40 (Row 5)
+    // Shift (Row 5, 8px) + Row 6 (4px)
     oled_set_cursor(0, 5);
-    oled_write_raw_P((current_mods & MOD_MASK_CTRL) ? img_mod_ctrl_on : img_mod_ctrl_off, sizeof(img_empty));
-    oled_set_cursor(0, 6);
-    oled_write_raw_P((current_mods & MOD_MASK_ALT) ? img_mod_alt_on : img_mod_alt_off, sizeof(img_empty));
-    oled_set_cursor(0, 7);
-    oled_write_raw_P((current_mods & MOD_MASK_GUI) ? img_mod_gui_on : img_mod_gui_off, sizeof(img_empty));
+    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
 
+    // Ctrl (Row 6.5? No, let's stack them using cursors)
+    // We have 48px for mods (6 rows). 12px each = 1.5 rows.
+    // Shift: Row 5-6 (part)
+    // Ctrl: Row 6 (part)-7
+    // Alt: Row 8-9 (part)
+    // Gui: Row 9 (part)-10
+
+    // Each 32x12 mod graphic spans two rows (pages).
+    // Page 5-6 (part): Shift
+    // Page 6.5-7.5 (not possible with oled_set_cursor)
+    // So we use Page 5, 7, 8, 10 to leave space or just stack them.
+    // 4 mods * 12px = 48px. y=40 to y=88.
+
+    // Page 5: y=40. Write 32x12 -> spans Page 5 and Page 6 (4px).
+    oled_set_cursor(0, 5);
+    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
+
+    // Page 6: y=48. BUT Shift used 4px of Page 6.
+    // Let's use Page 5, 6.5 (not possible), 8, 9.5
+    // Better: use Page 5 (40), Page 6+4px(52), Page 8(64), Page 9+4px(76)
+    // Since we can't do mid-page cursor, we'll write to the buffer directly if needed,
+    // OR just use 16px (2 rows) per mod for simplicity and alignment.
+    // 4 mods * 16px = 64px. y=40 to y=104. Too much.
+
+    // Let's use 12px and just accept the 4px vertical gaps if we align to 8px boundaries.
+    // y=40 (P5), y=56 (P7), y=72 (P9), y=88 (P11).
+    oled_set_cursor(0, 7);
+    oled_write_raw_P((current_mods & MOD_MASK_CTRL) ? img_mod_ctrl : img_empty_12, 64);
     oled_set_cursor(0, 9);
-    oled_write_raw_P(img_hdr_locks, sizeof(img_hdr_locks));
-    oled_set_cursor(0, 10);
-    oled_write_raw_P(current_caps ? img_lock_caps_on : img_lock_caps_off, sizeof(img_empty));
+    oled_write_raw_P((current_mods & MOD_MASK_ALT) ? img_mod_alt : img_empty_12, 64);
+    oled_set_cursor(0, 11);
+    oled_write_raw_P((current_mods & MOD_MASK_GUI) ? img_mod_gui : img_empty_12, 64);
+
+    // Caps Lock (32x32) at y=96 (Row 12)
+    oled_set_cursor(0, 12);
+    oled_write_raw_P(current_caps ? img_lock_caps_on : img_lock_caps_off, 128);
 
     return true;
 }

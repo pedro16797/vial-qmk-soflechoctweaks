@@ -17,6 +17,19 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "assets/lyr_qwerty.h"
+#include "assets/lyr_lower.h"
+#include "assets/lyr_raise.h"
+#include "assets/lyr_adjust.h"
+#include "assets/mod_shift.h"
+#include "assets/mod_ctrl.h"
+#include "assets/mod_alt.h"
+#include "assets/mod_gui.h"
+#include "assets/lock_caps_on.h"
+#include "assets/lock_caps_off.h"
+#include "assets/img_empty_32.h"
+#include "assets/img_empty_12.h"
+
 #ifdef SPLIT_KEYBOARD
 #    include "quantum/split_common/transactions.h"
 #endif
@@ -104,7 +117,7 @@ static const char PROGMEM matrix_to_ascii[5][6] = {
 static const char PROGMEM matrix_to_ascii_right[5][6] = {
     {0, '?', '!', '/', '>', '<'},
     {0, 'P', 'O', 'I', 'U', 'Y'},
-    {0, 'Ñ', 'L', 'K', 'J', 'H'},
+    {0, 'N', 'L', 'K', 'J', 'H'},
     {0, '-', '.', ',', 'M', 'N'},
     {0,  0,   0,   0 ,  0 ,  0 }
 };
@@ -124,8 +137,81 @@ oled_rotation_t oled_init_user(oled_rotation_t rotation) {
     return OLED_ROTATION_270;
 }
 
-static void render_status_slave(void) {
-    // Framework for future slave-side status rendering
+static bool render_status_slave(void) {
+    static layer_state_t last_layer_state = 0;
+    static uint8_t       last_mods        = 0;
+    static bool          last_caps        = false;
+    static bool          first_run        = true;
+
+    layer_state_t current_layer_state = layer_state;
+    uint8_t       current_mods        = get_mods();
+#ifdef ONESHOT_ENABLE
+    current_mods |= get_oneshot_mods();
+#endif
+    bool current_caps = host_keyboard_led_state().caps_lock;
+
+    if (!first_run && current_layer_state == last_layer_state && current_mods == last_mods && current_caps == last_caps) {
+        return false;
+    }
+
+    last_layer_state = current_layer_state;
+    last_mods        = current_mods;
+    last_caps        = current_caps;
+    first_run        = false;
+
+    // Layer Icon (32x32) at y=0
+    oled_set_cursor(0, 0);
+    switch (get_highest_layer(current_layer_state)) {
+        case _QWERTY: oled_write_raw_P(img_lyr_qwerty, 128); break;
+        case _LOWER:  oled_write_raw_P(img_lyr_lower, 128); break;
+        case _RAISE:  oled_write_raw_P(img_lyr_raise, 128); break;
+        case _ADJUST: oled_write_raw_P(img_lyr_adjust, 128); break;
+        default:      oled_write_raw_P(img_empty_32, 128); break;
+    }
+
+    // Modifiers (32x12 each) starting at y=40 (Row 5)
+    // Shift (Row 5, 8px) + Row 6 (4px)
+    oled_set_cursor(0, 5);
+    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
+
+    // Ctrl (Row 6.5? No, let's stack them using cursors)
+    // We have 48px for mods (6 rows). 12px each = 1.5 rows.
+    // Shift: Row 5-6 (part)
+    // Ctrl: Row 6 (part)-7
+    // Alt: Row 8-9 (part)
+    // Gui: Row 9 (part)-10
+
+    // Each 32x12 mod graphic spans two rows (pages).
+    // Page 5-6 (part): Shift
+    // Page 6.5-7.5 (not possible with oled_set_cursor)
+    // So we use Page 5, 7, 8, 10 to leave space or just stack them.
+    // 4 mods * 12px = 48px. y=40 to y=88.
+
+    // Page 5: y=40. Write 32x12 -> spans Page 5 and Page 6 (4px).
+    oled_set_cursor(0, 5);
+    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
+
+    // Page 6: y=48. BUT Shift used 4px of Page 6.
+    // Let's use Page 5, 6.5 (not possible), 8, 9.5
+    // Better: use Page 5 (40), Page 6+4px(52), Page 8(64), Page 9+4px(76)
+    // Since we can't do mid-page cursor, we'll write to the buffer directly if needed,
+    // OR just use 16px (2 rows) per mod for simplicity and alignment.
+    // 4 mods * 16px = 64px. y=40 to y=104. Too much.
+
+    // Let's use 12px and just accept the 4px vertical gaps if we align to 8px boundaries.
+    // y=40 (P5), y=56 (P7), y=72 (P9), y=88 (P11).
+    oled_set_cursor(0, 7);
+    oled_write_raw_P((current_mods & MOD_MASK_CTRL) ? img_mod_ctrl : img_empty_12, 64);
+    oled_set_cursor(0, 9);
+    oled_write_raw_P((current_mods & MOD_MASK_ALT) ? img_mod_alt : img_empty_12, 64);
+    oled_set_cursor(0, 11);
+    oled_write_raw_P((current_mods & MOD_MASK_GUI) ? img_mod_gui : img_empty_12, 64);
+
+    // Caps Lock (32x32) at y=96 (Row 12)
+    oled_set_cursor(0, 12);
+    oled_write_raw_P(current_caps ? img_lock_caps_on : img_lock_caps_off, 128);
+
+    return true;
 }
 
 #endif
@@ -182,12 +268,9 @@ bool oled_task_user(void) {
     static bool is_on = false;
 
     if (!is_keyboard_master()) {
-        if (is_on) {
-            oled_clear();
-            oled_off();
-            is_on = false;
+        if (render_status_slave()) {
+            oled_on();
         }
-        render_status_slave();
         return false;
     }
 

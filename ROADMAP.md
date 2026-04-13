@@ -56,7 +56,7 @@
     * Modify `config.h` to add `#define SPLIT_MODS_ENABLE` to ensure the slave half has access to current modifier states.
 * **4.3 Implement Status Polling & Rendering:**
     * In `render_status_slave()`, implement state-change detection to minimize I2C traffic.
-    * Display Active Layer, held Modifiers (Shift, Ctrl, Alt, Gui), and Lock states (Caps Lock) using graphical bitmaps for a cleaner aesthetic.
+    * Display Active Layer, held Modifiers (Shift, Ctrl, Alt, Gui), and Lock states (Caps Lock) using a modular graphical asset system for a cleaner and more maintainable aesthetic.
 
 ## Sprint 5: Build Automation & CI/CD [Pending]
 **Goal:** Containerize the build process to eliminate local dependency issues and automate compilation on GitHub.

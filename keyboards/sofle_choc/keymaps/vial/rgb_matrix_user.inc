@@ -27,6 +27,7 @@ bool pastel_pulse(effect_params_t* params) {
 
     uint32_t time_base = (layer == 1 || layer == 2) ? (0 - g_rgb_timer) : g_rgb_timer;
     uint32_t time = (uint32_t)(((uint64_t)time_base * speed) >> 10);
+    uint8_t hue_base = (uint8_t)(global_h + time);
 
     uint8_t local_min = is_left ? 0 : 29;
     uint8_t local_max = is_left ? 29 : RGB_MATRIX_LED_COUNT;
@@ -47,7 +48,7 @@ bool pastel_pulse(effect_params_t* params) {
         }
 
         uint8_t boost = led_boost[i];
-        uint8_t hue = (uint8_t)(global_h + time + i);
+        uint8_t hue = (uint8_t)(hue_base + i);
         RGB final_rgb;
 
         if (boost < 128) {

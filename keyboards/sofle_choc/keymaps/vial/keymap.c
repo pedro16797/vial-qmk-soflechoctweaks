@@ -104,7 +104,7 @@ static const char PROGMEM matrix_to_ascii[5][6] = {
 static const char PROGMEM matrix_to_ascii_right[5][6] = {
     {0, '?', '!', '/', '>', '<'},
     {0, 'P', 'O', 'I', 'U', 'Y'},
-    {0, 'Ñ', 'L', 'K', 'J', 'H'},
+    {0, 'N', 'L', 'K', 'J', 'H'},
     {0, '-', '.', ',', 'M', 'N'},
     {0,  0,   0,   0 ,  0 ,  0 }
 };

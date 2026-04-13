@@ -94,19 +94,19 @@ uint32_t decay_timer = 0;
 
 #ifdef OLED_ENABLE
 static const char PROGMEM matrix_to_ascii[5][6] = {
-    {0,   '1', '2', '3', '4', '5'},
-    {0,   'Q', 'W', 'E', 'R', 'T'},
-    {0,   'A', 'S', 'D', 'F', 'G'},
-    {0,   'Z', 'X', 'C', 'V', 'B'},
-    {0,   0,   0,   '_', 0,   0}
+    {0, '|', '@', '#', '&', '$'},
+    {0, 'Q', 'W', 'E', 'R', 'T'},
+    {0, 'A', 'S', 'D', 'F', 'G'},
+    {0, 'Z', 'X', 'C', 'V', 'B'},
+    {0,  0 ,  0 , '0',  0 ,  0 }
 };
 
 static const char PROGMEM matrix_to_ascii_right[5][6] = {
-    {0,   '0', '9', '8', '7', '6'},
-    {0,   'P', 'O', 'I', 'U', 'Y'},
-    {0x1B, ';', 'L', 'K', 'J', 'H'},
-    {0,   '/', '.', ',', 'M', 'N'},
-    {0,   0,   0,   '_', 0,   0}
+    {0, '?', '!', '/', '>', '<'},
+    {0, 'P', 'O', 'I', 'U', 'Y'},
+    {0, 'Ñ', 'L', 'K', 'J', 'H'},
+    {0, '-', '.', ',', 'M', 'N'},
+    {0,  0,   0,   0 ,  0 ,  0 }
 };
 
 typedef struct {
@@ -139,10 +139,10 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
 
-    if (led_boost[led_index] + 4 > 255) {
+    if (led_boost[led_index] + 16 > 255) {
         led_boost[led_index] = 255;
     } else {
-        led_boost[led_index] += 4;
+        led_boost[led_index] += 16;
     }
 }
 
@@ -213,16 +213,13 @@ bool oled_task_user(void) {
         is_on = true;
     }
 
-    // Optimization: avoid oled_clear() or loops which are heavy on I2C/Split.
-    // Overwrite the entire waterfall area (rows 0-15) in one go.
     oled_set_cursor(0, 0);
     oled_write_P(PSTR("     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     "), false);
 
     for (uint8_t i = 0; i < 32; i++) {
         if (typing_buffer[i].c != '\0') {
             uint32_t elapsed = timer_elapsed32(typing_buffer[i].timestamp);
-            // Sliding up effect: Start at row 15 and slide towards row 0.
-            // Speed: 1 row per 150ms. Approximation: * 437 >> 16
+            // Sliding up effect: Start at row 15 and slide towards row 0
             int8_t row = 15 - (int8_t)((elapsed * 437) >> 16);
 
             if (row >= 0 && row <= 15) {

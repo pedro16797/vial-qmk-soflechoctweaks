@@ -1,11 +1,11 @@
 # Analysis of Firmware Hangs and Performance
 
 ## Current State
-As of the completion of the Performance Optimization phase (Post-Sprint 3), the system has been improved by throttling housekeeping tasks and increasing I2C clock speeds to 400kHz. However, the slave (right) half still experiences intermittent hangs where it stops sending key inputs while the OLED continues to update.
+As of the latest optimization phase, we have confirmed that the **OLED display is the primary bottleneck**. When the OLED is inactive (diagnostically toggled via Caps Lock), the keyboard performance is "perfectly smooth." CPU usage for RGB and bitwise math is no longer considered a blocking factor.
 
 ## Possible Causes (Updated)
 
-### 1. I2C/Split Bus Saturation (Contention)
+### 1. I2C/Split Bus Saturation (OLED Dominance)
 Even though visual-related RPC traffic has been eliminated, QMK's standard split transport (syncing matrix state, layer state, and modifiers) still consumes significant bandwidth.
 *   **Contention:** If the OLED driver (which also uses I2C) or custom matrix scanning logic blocks the main loop for too long, the split synchronization window might be missed, leading to retries and input lag.
 *   **I2C Blocking:** Standard QMK OLED writes are often blocking. A single `oled_write_P` call for a large multiline string, while efficient in terms of transaction count, still holds the bus for several milliseconds.
@@ -21,13 +21,12 @@ The `pastel_pulse` effect performs linear interpolation and floating-point-like 
 
 ## Potential Measures for Fixes
 
-*   **[DONE] Throttle Visual Tasks:** Shadow matrix scan moved to a 10ms gate in `housekeeping_task_user`.
-*   **[DONE] Hardware I2C Speed:** Increased to 400kHz via `I2C1_CLOCK_SPEED`.
-*   **[DONE] State-Based OLED Throttling:** The OLED task yields immediately if no animation is active.
-*   **[DONE] Global FPS Throttling:** RGB Matrix capped at 30 FPS, OLED at 12.5 FPS.
-*   **[DONE] Bitwise Math:** Replaced all divisions with bit-shifts or fixed-point approximations.
-*   **[DONE] RNG Removal:** Replaced expensive `rand()` calls with `timer_read32()` based entropy.
-*   **[TESTING] OLED Toggle:** Display now only active when CAPS LOCK is enabled to isolate I2C bus impact.
+*   **[DONE] Throttle Visual Tasks:** Shadow matrix scan gated to 10ms.
+*   **[DONE] Hardware I2C Speed:** Increased to 400kHz.
+*   **[DONE] OLED State Throttling:** Yields when idle or when Caps Lock is off.
+*   **[DONE] Bitwise Optimization:** Removed all divisions and expensive math.
+*   **[DONE] Sync Fix:** Enabled `SPLIT_LED_STATE_ENABLE` to ensure the slave OLED respects the toggle.
+*   **Extensive OLED Throttling:** Reduced OLED update frequency to 120ms (8 FPS) to prioritize split transport.
 
 ## Hierarchy of Compromises
 To ensure the keyboard remains a reliable input device, we must adhere to the following priority hierarchy:

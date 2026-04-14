@@ -45,6 +45,10 @@ enum layers {
     _ADJUST
 };
 
+enum custom_keycodes {
+    OLED_DNG = SAFE_RANGE
+};
+
 const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
 [_QWERTY] = LAYOUT(
     // Row 0
@@ -86,7 +90,7 @@ const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
     // Row 0
     KC_TRNS,  KC_TRNS,    KC_TRNS,    KC_TRNS,    KC_TRNS,    KC_TRNS,                          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     // Row 1
-    KC_TRNS,  KC_F1,      KC_F2,      KC_F3,      KC_F4,      KC_TRNS,                          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+    KC_TRNS,  KC_F1,      KC_F2,      KC_F3,      KC_F4,      OLED_DNG,                         KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     // Row 2
     KC_TRNS,  KC_F5,      KC_F6,      KC_F7,      KC_F8,      KC_TRNS,                          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     // Row 3
@@ -106,6 +110,12 @@ uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
 uint32_t decay_timer = 0;
 
 #ifdef OLED_ENABLE
+static uint8_t oled_diag_mode = 1;
+
+void user_sync_oled_diag(uint8_t size, const void *data, uint8_t out_size, void *out_data) {
+    oled_diag_mode = *(uint8_t *)data;
+}
+
 static const char PROGMEM matrix_to_ascii[5][6] = {
     {0, '|', '@', '#', '&', '$'},
     {0, 'Q', 'W', 'E', 'R', 'T'},
@@ -142,6 +152,7 @@ static bool render_status_slave(void) {
     static uint8_t       last_mods        = 0;
     static bool          last_caps        = false;
     static bool          first_run        = true;
+    static uint8_t       last_jitter      = 0;
 
     layer_state_t current_layer_state = layer_state;
     uint8_t       current_mods        = get_mods();
@@ -174,36 +185,15 @@ static bool render_status_slave(void) {
     oled_set_cursor(0, 5);
     oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
 
-    // Ctrl (Row 6.5? No, let's stack them using cursors)
-    // We have 48px for mods (6 rows). 12px each = 1.5 rows.
-    // Shift: Row 5-6 (part)
-    // Ctrl: Row 6 (part)-7
-    // Alt: Row 8-9 (part)
-    // Gui: Row 9 (part)-10
-
-    // Each 32x12 mod graphic spans two rows (pages).
-    // Page 5-6 (part): Shift
-    // Page 6.5-7.5 (not possible with oled_set_cursor)
-    // So we use Page 5, 7, 8, 10 to leave space or just stack them.
-    // 4 mods * 12px = 48px. y=40 to y=88.
-
-    // Page 5: y=40. Write 32x12 -> spans Page 5 and Page 6 (4px).
-    oled_set_cursor(0, 5);
-    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
-
-    // Page 6: y=48. BUT Shift used 4px of Page 6.
-    // Let's use Page 5, 6.5 (not possible), 8, 9.5
-    // Better: use Page 5 (40), Page 6+4px(52), Page 8(64), Page 9+4px(76)
-    // Since we can't do mid-page cursor, we'll write to the buffer directly if needed,
-    // OR just use 16px (2 rows) per mod for simplicity and alignment.
-    // 4 mods * 16px = 64px. y=40 to y=104. Too much.
-
-    // Let's use 12px and just accept the 4px vertical gaps if we align to 8px boundaries.
-    // y=40 (P5), y=56 (P7), y=72 (P9), y=88 (P11).
+    // Ctrl (Row 7, 56px)
     oled_set_cursor(0, 7);
     oled_write_raw_P((current_mods & MOD_MASK_CTRL) ? img_mod_ctrl : img_empty_12, 64);
+
+    // Alt (Row 9, 72px)
     oled_set_cursor(0, 9);
     oled_write_raw_P((current_mods & MOD_MASK_ALT) ? img_mod_alt : img_empty_12, 64);
+
+    // Gui (Row 11, 88px)
     oled_set_cursor(0, 11);
     oled_write_raw_P((current_mods & MOD_MASK_GUI) ? img_mod_gui : img_empty_12, 64);
 
@@ -244,6 +234,14 @@ void add_to_buffer_at(char c, uint8_t x) {
 void keyboard_post_init_user(void) {
     decay_timer = timer_read32();
 
+#ifdef SPLIT_KEYBOARD
+    if (!is_keyboard_master()) {
+        transaction_register_rpc(SYNC_OLED_DIAG_ID, user_sync_oled_diag);
+    } else {
+        transaction_rpc_exec(SYNC_OLED_DIAG_ID, sizeof(oled_diag_mode), &oled_diag_mode, 0, NULL);
+    }
+#endif
+
     // Initialize state
     for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
         led_boost[i] = 0;
@@ -265,7 +263,29 @@ void keyboard_post_init_user(void) {
 
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
-    static bool is_on = false;
+    static bool    is_on              = false;
+    static uint8_t last_applied_diag  = 0xFF;
+    uint8_t        current_diag_mode = oled_diag_mode;
+
+    if (current_diag_mode != last_applied_diag) {
+        if (current_diag_mode == 2) {
+            oled_invert(true);
+        } else {
+            oled_invert(false);
+        }
+
+        if (current_diag_mode == 1) {
+            oled_on();
+            for (uint16_t i = 0; i < OLED_MATRIX_SIZE; i++) {
+                oled_write_raw_byte(0xFF, i);
+            }
+        }
+        last_applied_diag = current_diag_mode;
+    }
+
+    if (current_diag_mode == 1) {
+        return false;
+    }
 
     if (!is_keyboard_master()) {
         if (render_status_slave()) {
@@ -324,6 +344,17 @@ bool oled_task_user(void) {
 #endif
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case OLED_DNG:
+            if (record->event.pressed) {
+                oled_diag_mode = (oled_diag_mode + 1) % 3;
+#ifdef SPLIT_KEYBOARD
+                transaction_rpc_exec(SYNC_OLED_DIAG_ID, sizeof(oled_diag_mode), &oled_diag_mode, 0, NULL);
+#endif
+            }
+            return false;
+    }
+
 #ifdef OLED_ENABLE
     if (is_keyboard_master() && record->event.pressed) {
         uint8_t r = record->event.key.row;

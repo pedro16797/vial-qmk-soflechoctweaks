@@ -152,7 +152,6 @@ static bool render_status_slave(void) {
     static uint8_t       last_mods        = 0;
     static bool          last_caps        = false;
     static bool          first_run        = true;
-    static uint8_t       last_jitter      = 0;
 
     layer_state_t current_layer_state = layer_state;
     uint8_t       current_mods        = get_mods();

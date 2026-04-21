@@ -268,6 +268,44 @@ void keyboard_post_init_user(void) {
             }
         }
     }
+
+    // One-time initialization for Vial defaults
+    if (is_keyboard_master()) {
+        if (eeconfig_read_user() != 0x4256494C) {
+            vial_tap_dance_entry_t td0 = {
+                .on_tap = KC_MPLY,
+                .on_hold = KC_NO,
+                .on_double_tap = KC_MNXT,
+                .on_tap_hold = KC_MNXT,
+                .custom_tapping_term = 200
+            };
+            dynamic_keymap_set_tap_dance(0, &td0);
+
+            vial_tap_dance_entry_t td1 = {
+                .on_tap = KC_NO,
+                .on_hold = KC_SLEP,
+                .on_double_tap = KC_PWR,
+                .on_tap_hold = KC_PWR,
+                .custom_tapping_term = 200
+            };
+            dynamic_keymap_set_tap_dance(1, &td1);
+
+            vial_combo_entry_t combo0 = {
+                .input = { KC_C, KC_S, KC_NO, KC_NO },
+                .output = KC_SCLN
+            };
+            dynamic_keymap_set_combo(0, &combo0);
+
+            // Force the keymap to use TD(0) and TD(1) in EEPROM
+            // Right-most key of top row is matrix [5, 0]
+            dynamic_keymap_set_keycode(0, 5, 0, TD(0));
+            // Right-most thumb key is matrix [9, 0]
+            dynamic_keymap_set_keycode(0, 9, 0, TD(1));
+
+            eeconfig_update_user(0x4256494C);
+            vial_init();
+        }
+    }
 }
 
 #ifdef OLED_ENABLE
@@ -424,4 +462,7 @@ void eeconfig_init_user(void) {
         .output = KC_SCLN
     };
     dynamic_keymap_set_combo(0, &combo0);
+
+    // Set the magic value so keyboard_post_init_user doesn't run again
+    eeconfig_update_user(0x4256494C);
 }

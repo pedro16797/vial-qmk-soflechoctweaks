@@ -19,9 +19,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define VIAL_INIT_MAGIC 0x5649
+#define VIAL_INIT_MAGIC 0x564B
 
 static void init_vial_defaults(void) {
+    dynamic_keymap_reset();
     vial_tap_dance_entry_t td0 = {
         .on_tap = KC_MPLY,
         .on_hold = KC_NO,

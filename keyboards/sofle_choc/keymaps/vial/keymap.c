@@ -14,6 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include QMK_KEYBOARD_H
+#include "vial.h"
+#include "dynamic_keymap.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -48,7 +50,7 @@ enum layers {
 const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
 [_QWERTY] = LAYOUT(
     // Row 0
-    KC_ESC,   RALT(KC_1), RALT(KC_2), RALT(KC_3), LSFT(KC_6), RALT(KC_E),                     KC_NUBS,    LSFT(KC_NUBS), KC_PSLS, LSFT(KC_1), LSFT(KC_MINUS), KC_MPLY,
+    KC_ESC,   RALT(KC_1), RALT(KC_2), RALT(KC_3), LSFT(KC_6), RALT(KC_E),                     KC_NUBS,    LSFT(KC_NUBS), KC_PSLS, LSFT(KC_1), LSFT(KC_MINUS), TD(0),
     // Row 1
     KC_TAB,   KC_Q,       KC_W,       KC_E,       KC_R,       KC_T,                           KC_Y,       KC_U,       KC_I,       KC_O,       KC_P,       KC_BSPC,
     // Row 2
@@ -397,3 +399,10 @@ const uint16_t PROGMEM encoder_map[4][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_ADJUST] = { ENCODER_CCW_CW(KC_MS_L, KC_MS_R), ENCODER_CCW_CW(KC_MS_D, KC_MS_U) },
 };
 #endif
+
+void eeconfig_init_user(void) {
+    vial_tap_dance_entry_t td0 = { KC_MPLY, KC_NO, KC_MNXT, KC_MNXT, 200 };
+    dynamic_keymap_set_tap_dance(0, &td0);
+    vial_tap_dance_entry_t td1 = { KC_NO, KC_SLEP, KC_PWR, KC_PWR, 200 };
+    dynamic_keymap_set_tap_dance(1, &td1);
+}

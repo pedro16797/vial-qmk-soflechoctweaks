@@ -42,7 +42,7 @@ static void init_vial_defaults(void) {
 
     vial_combo_entry_t combo0 = {
         .input = { KC_C, KC_S, KC_NO, KC_NO },
-        .output = KC_BSLASH
+        .output = KC_BSLS
     };
     dynamic_keymap_set_combo(0, &combo0);
 

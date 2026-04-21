@@ -401,8 +401,27 @@ const uint16_t PROGMEM encoder_map[4][NUM_ENCODERS][NUM_DIRECTIONS] = {
 #endif
 
 void eeconfig_init_user(void) {
-    vial_tap_dance_entry_t td0 = { KC_MPLY, KC_NO, KC_MNXT, KC_MNXT, 200 };
+    vial_tap_dance_entry_t td0 = {
+        .on_tap = KC_MPLY,
+        .on_hold = KC_NO,
+        .on_double_tap = KC_MNXT,
+        .on_tap_hold = KC_MNXT,
+        .custom_tapping_term = 200
+    };
     dynamic_keymap_set_tap_dance(0, &td0);
-    vial_tap_dance_entry_t td1 = { KC_NO, KC_SLEP, KC_PWR, KC_PWR, 200 };
+
+    vial_tap_dance_entry_t td1 = {
+        .on_tap = KC_NO,
+        .on_hold = KC_SLEP,
+        .on_double_tap = KC_PWR,
+        .on_tap_hold = KC_PWR,
+        .custom_tapping_term = 200
+    };
     dynamic_keymap_set_tap_dance(1, &td1);
+
+    vial_combo_entry_t combo0 = {
+        .input = { KC_C, KC_S, KC_NO, KC_NO },
+        .output = KC_SCLN
+    };
+    dynamic_keymap_set_combo(0, &combo0);
 }

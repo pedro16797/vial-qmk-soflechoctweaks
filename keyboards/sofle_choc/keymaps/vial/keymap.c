@@ -111,6 +111,7 @@ uint32_t decay_timer = 0;
 
 #ifdef OLED_ENABLE
 static uint8_t oled_diag_mode = 1;
+static uint8_t original_brightness = 255;
 
 void user_sync_oled_diag(uint8_t size, const void *data, uint8_t out_size, void *out_data) {
     oled_diag_mode = *(uint8_t *)data;
@@ -142,6 +143,7 @@ typing_char_t typing_buffer[32];
 uint8_t       typing_buffer_index = 0;
 
 oled_rotation_t oled_init_user(oled_rotation_t rotation) {
+    original_brightness = oled_get_brightness();
     oled_clear();
     oled_off();
     return OLED_ROTATION_270;
@@ -267,22 +269,40 @@ bool oled_task_user(void) {
     uint8_t        current_diag_mode = oled_diag_mode;
 
     if (current_diag_mode != last_applied_diag) {
+        if (current_diag_mode >= 1) {
+            oled_set_brightness(255);
+        } else if (last_applied_diag != 0xFF) {
+            oled_set_brightness(original_brightness);
+        }
+
         if (current_diag_mode == 2) {
             oled_invert(true);
         } else {
             oled_invert(false);
         }
 
-        if (current_diag_mode == 1) {
+        if (current_diag_mode == 1 || current_diag_mode == 3) {
             oled_on();
-            for (uint16_t i = 0; i < OLED_MATRIX_SIZE; i++) {
+            for (uint16_t i = 0; i < (OLED_DISPLAY_WIDTH * OLED_DISPLAY_HEIGHT / 8); i++) {
                 oled_write_raw_byte(0xFF, i);
             }
+        } else {
+            oled_clear();
         }
         last_applied_diag = current_diag_mode;
     }
 
     if (current_diag_mode == 1) {
+        return false;
+    }
+
+    if (current_diag_mode == 3) {
+        // Strobe mode: ~4Hz flicker
+        if ((timer_read32() >> 8) & 0x01) {
+            oled_on();
+        } else {
+            oled_off();
+        }
         return false;
     }
 
@@ -346,7 +366,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         case OLED_DNG:
             if (record->event.pressed) {
-                oled_diag_mode = (oled_diag_mode + 1) % 3;
+                oled_diag_mode = (oled_diag_mode + 1) % 4;
 #ifdef SPLIT_KEYBOARD
                 transaction_rpc_exec(SYNC_OLED_DIAG_ID, sizeof(oled_diag_mode), &oled_diag_mode, 0, NULL);
 #endif

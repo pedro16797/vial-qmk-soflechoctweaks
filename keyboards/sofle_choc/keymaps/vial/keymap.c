@@ -143,7 +143,6 @@ typing_char_t typing_buffer[32];
 uint8_t       typing_buffer_index = 0;
 
 oled_rotation_t oled_init_user(oled_rotation_t rotation) {
-    original_brightness = oled_get_brightness();
     oled_clear();
     oled_off();
     return OLED_ROTATION_270;
@@ -234,6 +233,7 @@ void add_to_buffer_at(char c, uint8_t x) {
 
 void keyboard_post_init_user(void) {
     decay_timer = timer_read32();
+    original_brightness = oled_get_brightness();
 
 #ifdef SPLIT_KEYBOARD
     if (!is_keyboard_master()) {
@@ -281,7 +281,7 @@ bool oled_task_user(void) {
             oled_invert(false);
         }
 
-        if (current_diag_mode == 1 || current_diag_mode == 3) {
+        if (current_diag_mode == 1 || current_diag_mode == 3 || current_diag_mode == 4) {
             oled_on();
             for (uint16_t i = 0; i < (OLED_DISPLAY_WIDTH * OLED_DISPLAY_HEIGHT / 8); i++) {
                 oled_write_raw_byte(0xFF, i);
@@ -293,7 +293,7 @@ bool oled_task_user(void) {
     }
 
     if (current_diag_mode == 1) {
-        return false;
+        return true;
     }
 
     if (current_diag_mode == 3) {
@@ -303,7 +303,18 @@ bool oled_task_user(void) {
         } else {
             oled_off();
         }
-        return false;
+        return true;
+    }
+
+    if (current_diag_mode == 4) {
+        // Noise mode: digital snow
+        uint32_t seed = timer_read32();
+        for (uint16_t i = 0; i < (OLED_DISPLAY_WIDTH * OLED_DISPLAY_HEIGHT / 8); i++) {
+            // Pseudo-random snow derived from timer and index
+            uint8_t noise = (uint8_t)((seed ^ (i * 0xdead)) >> (i % 8));
+            oled_write_raw_byte(noise, i);
+        }
+        return true;
     }
 
     if (!is_keyboard_master()) {
@@ -366,7 +377,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         case OLED_DNG:
             if (record->event.pressed) {
-                oled_diag_mode = (oled_diag_mode + 1) % 4;
+                oled_diag_mode = (oled_diag_mode + 1) % 5;
 #ifdef SPLIT_KEYBOARD
                 transaction_rpc_exec(SYNC_OLED_DIAG_ID, sizeof(oled_diag_mode), &oled_diag_mode, 0, NULL);
 #endif

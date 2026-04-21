@@ -19,6 +19,43 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define VIAL_INIT_MAGIC 0x5649
+
+static void init_vial_defaults(void) {
+    vial_tap_dance_entry_t td0 = {
+        .on_tap = KC_MPLY,
+        .on_hold = KC_NO,
+        .on_double_tap = KC_MNXT,
+        .on_tap_hold = KC_MNXT,
+        .custom_tapping_term = 200
+    };
+    dynamic_keymap_set_tap_dance(0, &td0);
+
+    vial_tap_dance_entry_t td1 = {
+        .on_tap = KC_NO,
+        .on_hold = KC_SLEP,
+        .on_double_tap = KC_PWR,
+        .on_tap_hold = KC_PWR,
+        .custom_tapping_term = 200
+    };
+    dynamic_keymap_set_tap_dance(1, &td1);
+
+    vial_combo_entry_t combo0 = {
+        .input = { KC_C, KC_S, KC_NO, KC_NO },
+        .output = KC_SCLN
+    };
+    dynamic_keymap_set_combo(0, &combo0);
+
+    // Force the keymap to use TD(0) and TD(1) in EEPROM
+    // [5, 0] is top-right-most (originally KC_MPLY)
+    dynamic_keymap_set_keycode(0, 5, 0, TD(0));
+    // [9, 0] is right-most thumb key
+    dynamic_keymap_set_keycode(0, 9, 0, TD(1));
+
+    eeconfig_update_user(VIAL_INIT_MAGIC);
+    vial_init();
+}
+
 #include "assets/lyr_qwerty.h"
 #include "assets/lyr_lower.h"
 #include "assets/lyr_raise.h"
@@ -271,39 +308,8 @@ void keyboard_post_init_user(void) {
 
     // One-time initialization for Vial defaults
     if (is_keyboard_master()) {
-        if (eeconfig_read_user() != 0x4256494C) {
-            vial_tap_dance_entry_t td0 = {
-                .on_tap = KC_MPLY,
-                .on_hold = KC_NO,
-                .on_double_tap = KC_MNXT,
-                .on_tap_hold = KC_MNXT,
-                .custom_tapping_term = 200
-            };
-            dynamic_keymap_set_tap_dance(0, &td0);
-
-            vial_tap_dance_entry_t td1 = {
-                .on_tap = KC_NO,
-                .on_hold = KC_SLEP,
-                .on_double_tap = KC_PWR,
-                .on_tap_hold = KC_PWR,
-                .custom_tapping_term = 200
-            };
-            dynamic_keymap_set_tap_dance(1, &td1);
-
-            vial_combo_entry_t combo0 = {
-                .input = { KC_C, KC_S, KC_NO, KC_NO },
-                .output = KC_SCLN
-            };
-            dynamic_keymap_set_combo(0, &combo0);
-
-            // Force the keymap to use TD(0) and TD(1) in EEPROM
-            // Right-most key of top row is matrix [5, 0]
-            dynamic_keymap_set_keycode(0, 5, 0, TD(0));
-            // Right-most thumb key is matrix [9, 0]
-            dynamic_keymap_set_keycode(0, 9, 0, TD(1));
-
-            eeconfig_update_user(0x4256494C);
-            vial_init();
+        if ((uint16_t)eeconfig_read_user() != VIAL_INIT_MAGIC) {
+            init_vial_defaults();
         }
     }
 }
@@ -439,30 +445,5 @@ const uint16_t PROGMEM encoder_map[4][NUM_ENCODERS][NUM_DIRECTIONS] = {
 #endif
 
 void eeconfig_init_user(void) {
-    vial_tap_dance_entry_t td0 = {
-        .on_tap = KC_MPLY,
-        .on_hold = KC_NO,
-        .on_double_tap = KC_MNXT,
-        .on_tap_hold = KC_MNXT,
-        .custom_tapping_term = 200
-    };
-    dynamic_keymap_set_tap_dance(0, &td0);
-
-    vial_tap_dance_entry_t td1 = {
-        .on_tap = KC_NO,
-        .on_hold = KC_SLEP,
-        .on_double_tap = KC_PWR,
-        .on_tap_hold = KC_PWR,
-        .custom_tapping_term = 200
-    };
-    dynamic_keymap_set_tap_dance(1, &td1);
-
-    vial_combo_entry_t combo0 = {
-        .input = { KC_C, KC_S, KC_NO, KC_NO },
-        .output = KC_SCLN
-    };
-    dynamic_keymap_set_combo(0, &combo0);
-
-    // Set the magic value so keyboard_post_init_user doesn't run again
-    eeconfig_update_user(0x4256494C);
+    init_vial_defaults();
 }

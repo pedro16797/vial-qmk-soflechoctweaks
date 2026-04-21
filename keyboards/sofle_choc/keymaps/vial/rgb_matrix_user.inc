@@ -56,31 +56,32 @@ bool pastel_pulse(effect_params_t* params) {
             uint8_t v_total = (level * global_v) >> 8;
             uint8_t s_total = (level * global_s) >> 8;
             final_rgb = hsv_to_rgb((HSV){hue, s_total, v_total});  
-        } else if (boost < 160) {
-            // Base to Red (255, 0, 0)
-            RGB rgb_base = hsv_to_rgb((HSV){hue, global_s, global_v});
-            uint8_t t = boost - 127;
-            final_rgb.r = rgb_base.r + (((255 - rgb_base.r) * t) >> 5);
-            final_rgb.g = rgb_base.g - ((rgb_base.g * t) >> 5);
-            final_rgb.b = rgb_base.b - ((rgb_base.b * t) >> 5);
-        } else if (boost < 192) {
-            // Red to Yellow (255, 255, 0)
-            uint8_t t = boost - 159;
-            final_rgb.r = 255;
-            final_rgb.g = (t << 3) + (t >> 2); 
-            final_rgb.b = 0;
-        } else if (boost < 224) {
-            // Yellow to White (255, 255, 255)
-            uint8_t t = boost - 191;
-            final_rgb.r = 255;
-            final_rgb.g = 255;
-            final_rgb.b = (t << 3) + (t >> 2);
         } else {
-            // White to Off-White (224, 224, 255)
-            uint8_t t = boost - 223;
-            final_rgb.r = 255 - t; 
-            final_rgb.g = 255 - t;
-            final_rgb.b = 255;
+            uint8_t t = boost & 31;
+            uint8_t t_scale = (t << 3) | (t >> 2);
+
+            if (boost < 160) {
+                // Base to Red (255, 0, 0)
+                RGB rgb_base = hsv_to_rgb((HSV){hue, global_s, global_v});
+                final_rgb.r = rgb_base.r + (((255 - rgb_base.r) * (uint16_t)t_scale) >> 8);
+                final_rgb.g = rgb_base.g - (((uint16_t)rgb_base.g * t_scale) >> 8);
+                final_rgb.b = rgb_base.b - (((uint16_t)rgb_base.b * t_scale) >> 8);
+            } else if (boost < 192) {
+                // Red to Yellow (255, 255, 0)
+                final_rgb.r = 255;
+                final_rgb.g = t_scale;
+                final_rgb.b = 0;
+            } else if (boost < 224) {
+                // Yellow to White (255, 255, 255)
+                final_rgb.r = 255;
+                final_rgb.g = 255;
+                final_rgb.b = t_scale;
+            } else {
+                // White to Off-White (224, 224, 255)
+                final_rgb.r = 255 - t;
+                final_rgb.g = 255 - t;
+                final_rgb.b = 255;
+            }
         }
 
         rgb_matrix_set_color(i - local_min, final_rgb.r, final_rgb.g, final_rgb.b);

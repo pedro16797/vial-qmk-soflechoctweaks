@@ -225,10 +225,15 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
 
-    if (led_boost[led_index] + 16 > 255) {
+    uint8_t current_boost = led_boost[led_index];
+    uint8_t add           = 16;
+    if (current_boost & 128) add >>= 2;
+    if (current_boost & 64) add >>= 1;
+
+    if ((uint16_t)current_boost + add > 255) {
         led_boost[led_index] = 255;
     } else {
-        led_boost[led_index] += 16;
+        led_boost[led_index] += add;
     }
 }
 

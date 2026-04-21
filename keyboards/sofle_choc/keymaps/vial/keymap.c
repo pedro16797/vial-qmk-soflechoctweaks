@@ -346,7 +346,6 @@ bool oled_task_user(void) {
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 #ifdef OLED_ENABLE
-    static uint8_t waterfall_col = 0;
     if (is_keyboard_master() && record->event.pressed) {
         uint8_t r = record->event.key.row;
         uint8_t c = record->event.key.col;
@@ -357,9 +356,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             c_ascii = pgm_read_byte(&matrix_to_ascii_right[r - 5][c]);
         }
         if (c_ascii) {
-            add_to_buffer_at(c_ascii, waterfall_col);
-            waterfall_col++;
-            if (waterfall_col >= 5) waterfall_col = 0;
+            add_to_buffer_at(c_ascii, (uint8_t)(timer_read32() % 5));
         }
     }
 #endif

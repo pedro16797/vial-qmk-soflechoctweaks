@@ -14,8 +14,47 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include QMK_KEYBOARD_H
+#include "vial.h"
+#include "dynamic_keymap.h"
 #include <string.h>
 #include <stdlib.h>
+
+#define VIAL_INIT_MAGIC 0x5649
+
+static void init_vial_defaults(void) {
+    vial_tap_dance_entry_t td0 = {
+        .on_tap = KC_MPLY,
+        .on_hold = KC_NO,
+        .on_double_tap = KC_MNXT,
+        .on_tap_hold = KC_MNXT,
+        .custom_tapping_term = 200
+    };
+    dynamic_keymap_set_tap_dance(0, &td0);
+
+    vial_tap_dance_entry_t td1 = {
+        .on_tap = KC_NO,
+        .on_hold = KC_SLEP,
+        .on_double_tap = KC_PWR,
+        .on_tap_hold = KC_PWR,
+        .custom_tapping_term = 200
+    };
+    dynamic_keymap_set_tap_dance(1, &td1);
+
+    vial_combo_entry_t combo0 = {
+        .input = { KC_C, KC_S, KC_NO, KC_NO },
+        .output = KC_BSLS
+    };
+    dynamic_keymap_set_combo(0, &combo0);
+
+    // Force the keymap to use TD(0) and TD(1) in EEPROM
+    // [5, 0] is top-right-most
+    dynamic_keymap_set_keycode(0, 5, 0, TD(0));
+    // [9, 0] is right-most thumb key
+    dynamic_keymap_set_keycode(0, 9, 0, TD(1));
+
+    eeconfig_update_user(VIAL_INIT_MAGIC);
+    vial_init();
+}
 
 #include "assets/lyr_qwerty.h"
 #include "assets/lyr_lower.h"
@@ -48,7 +87,7 @@ enum layers {
 const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
 [_QWERTY] = LAYOUT(
     // Row 0
-    KC_ESC,   RALT(KC_1), RALT(KC_2), RALT(KC_3), LSFT(KC_6), RALT(KC_E),                     KC_NUBS,    LSFT(KC_NUBS), KC_PSLS, LSFT(KC_1), LSFT(KC_MINUS), KC_MPLY,
+    KC_ESC,   RALT(KC_1), RALT(KC_2), RALT(KC_3), LSFT(KC_6), RALT(KC_E),                     KC_NUBS,    LSFT(KC_NUBS), KC_PSLS, LSFT(KC_1), LSFT(KC_MINUS), TD(0),
     // Row 1
     KC_TAB,   KC_Q,       KC_W,       KC_E,       KC_R,       KC_T,                           KC_Y,       KC_U,       KC_I,       KC_O,       KC_P,       KC_BSPC,
     // Row 2
@@ -159,7 +198,6 @@ static bool render_status_slave(void) {
     last_caps        = current_caps;
     first_run        = false;
 
-    // Layer Icon (32x32) at y=0
     oled_set_cursor(0, 0);
     switch (get_highest_layer(current_layer_state)) {
         case _QWERTY: oled_write_raw_P(img_lyr_qwerty, 128); break;
@@ -169,45 +207,16 @@ static bool render_status_slave(void) {
         default:      oled_write_raw_P(img_empty_32, 128); break;
     }
 
-    // Modifiers (32x12 each) starting at y=40 (Row 5)
-    // Shift (Row 5, 8px) + Row 6 (4px)
     oled_set_cursor(0, 5);
     oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
-
-    // Ctrl (Row 6.5? No, let's stack them using cursors)
-    // We have 48px for mods (6 rows). 12px each = 1.5 rows.
-    // Shift: Row 5-6 (part)
-    // Ctrl: Row 6 (part)-7
-    // Alt: Row 8-9 (part)
-    // Gui: Row 9 (part)-10
-
-    // Each 32x12 mod graphic spans two rows (pages).
-    // Page 5-6 (part): Shift
-    // Page 6.5-7.5 (not possible with oled_set_cursor)
-    // So we use Page 5, 7, 8, 10 to leave space or just stack them.
-    // 4 mods * 12px = 48px. y=40 to y=88.
-
-    // Page 5: y=40. Write 32x12 -> spans Page 5 and Page 6 (4px).
     oled_set_cursor(0, 5);
     oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
-
-    // Page 6: y=48. BUT Shift used 4px of Page 6.
-    // Let's use Page 5, 6.5 (not possible), 8, 9.5
-    // Better: use Page 5 (40), Page 6+4px(52), Page 8(64), Page 9+4px(76)
-    // Since we can't do mid-page cursor, we'll write to the buffer directly if needed,
-    // OR just use 16px (2 rows) per mod for simplicity and alignment.
-    // 4 mods * 16px = 64px. y=40 to y=104. Too much.
-
-    // Let's use 12px and just accept the 4px vertical gaps if we align to 8px boundaries.
-    // y=40 (P5), y=56 (P7), y=72 (P9), y=88 (P11).
     oled_set_cursor(0, 7);
     oled_write_raw_P((current_mods & MOD_MASK_CTRL) ? img_mod_ctrl : img_empty_12, 64);
     oled_set_cursor(0, 9);
     oled_write_raw_P((current_mods & MOD_MASK_ALT) ? img_mod_alt : img_empty_12, 64);
     oled_set_cursor(0, 11);
     oled_write_raw_P((current_mods & MOD_MASK_GUI) ? img_mod_gui : img_empty_12, 64);
-
-    // Caps Lock (32x32) at y=96 (Row 12)
     oled_set_cursor(0, 12);
     oled_write_raw_P(current_caps ? img_lock_caps_on : img_lock_caps_off, 128);
 
@@ -264,6 +273,13 @@ void keyboard_post_init_user(void) {
                 led_to_row[led] = r;
                 led_to_col[led] = c;
             }
+        }
+    }
+
+    // One-time initialization for Vial defaults
+    if (is_keyboard_master()) {
+        if ((uint16_t)eeconfig_read_user() != VIAL_INIT_MAGIC) {
+            init_vial_defaults();
         }
     }
 }
@@ -397,3 +413,7 @@ const uint16_t PROGMEM encoder_map[4][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_ADJUST] = { ENCODER_CCW_CW(KC_MS_L, KC_MS_R), ENCODER_CCW_CW(KC_MS_D, KC_MS_U) },
 };
 #endif
+
+void eeconfig_init_user(void) {
+    init_vial_defaults();
+}

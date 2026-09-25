@@ -3,6 +3,9 @@
     "vendorId": "0xFC32",
     "productId": "0x0287",
     "lighting": "vialrgb",
+    "customKeycodes": [
+        {"name": "PWR_HOLD", "title": "Hold 1s: sleep, or power off on another layer", "shortName": "PwrHold"}
+    ],
     "matrix": { "rows": 10, "cols": 6 },
     "layouts": {
         "keymap": [

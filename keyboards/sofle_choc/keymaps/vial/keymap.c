@@ -21,6 +21,10 @@
 
 #define VIAL_INIT_MAGIC 0x564B
 
+enum custom_keycodes {
+    PWR_HOLD = QK_KB_0 // Hold 1s: sleep, or power off while on a non-base layer
+};
+
 // Vial resets its EEPROM on the first boot of every new build (random BUILD_ID),
 // so defaults are re-applied whenever that happens
 static void init_vial_defaults(void) {
@@ -32,15 +36,6 @@ static void init_vial_defaults(void) {
         .custom_tapping_term = 200
     };
     dynamic_keymap_set_tap_dance(0, &td0);
-
-    vial_tap_dance_entry_t td1 = {
-        .on_tap = KC_NO,
-        .on_hold = KC_SLEP,
-        .on_double_tap = KC_PWR,
-        .on_tap_hold = KC_PWR,
-        .custom_tapping_term = 200
-    };
-    dynamic_keymap_set_tap_dance(1, &td1);
 
     vial_combo_entry_t combo0 = {
         .input = { KC_C, KC_S, KC_NO, KC_NO },
@@ -99,7 +94,7 @@ const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
     // Row 3 (Left Row 3, Center L Btn, Center R Btn, Right Row 3)
     KC_LSFT,  KC_Z,       KC_X,       KC_C,       KC_V,       KC_B,    KC_MUTE,   RGB_TOG,    KC_N,       KC_M,       KC_COMM,    KC_DOT,     KC_SLSH,    KC_QUOT,
     // Thumb Row (Left 1-5, Right 1-5)
-                    KC_LGUI, KC_LALT, KC_LCTL, KC_SPACE, MO(_LOWER),                         MO(_RAISE), KC_SPACE, KC_DEL, KC_PGUP, TD(1)
+                    KC_LGUI, KC_LALT, KC_LCTL, KC_SPACE, MO(_LOWER),                         MO(_RAISE), KC_SPACE, KC_DEL, KC_PGUP, PWR_HOLD
 ),
 [_LOWER] = LAYOUT(
     // Row 0
@@ -150,6 +145,16 @@ uint32_t decay_timer   = 0;
 static bool    boost_active = false;
 static uint8_t local_row_min, local_led_min, local_led_max;
 static uint32_t thumb_led_mask = 0; // Local thumb row, bit = LED index - local_led_min
+
+// Hold-to-sleep/power-off state, mirrored to the slave so both halves draw the progress sweep
+#define POWER_HOLD_MS 1000
+enum { HOLD_NONE, HOLD_SLEEP, HOLD_POWER };
+typedef struct {
+    uint8_t  mode;
+    uint32_t start; // sync_timer time, shared by both halves
+} power_hold_t;
+static power_hold_t power_hold;
+static bool         power_hold_fired, power_hold_dirty;
 
 #ifdef OLED_ENABLE
 static const char PROGMEM matrix_to_ascii[5][6] = {
@@ -263,6 +268,22 @@ void add_to_buffer_at(char c, uint8_t x) {
 }
 #endif
 
+static void power_hold_slave_handler(uint8_t in_len, const void *in_data, uint8_t out_len, void *out_data) {
+    if (in_len == sizeof(power_hold)) memcpy(&power_hold, in_data, sizeof(power_hold));
+}
+
+// Master only: fires the action once held long enough and pushes state changes to the slave
+static void power_hold_task(void) {
+    if (power_hold_dirty && is_transport_connected()) {
+        if (transaction_rpc_send(RPC_ID_POWER_HOLD, sizeof(power_hold), &power_hold)) power_hold_dirty = false;
+    }
+    if (power_hold.mode == HOLD_NONE || power_hold_fired) return;
+    if (sync_timer_elapsed32(power_hold.start) >= POWER_HOLD_MS) {
+        power_hold_fired = true;
+        register_code16(power_hold.mode == HOLD_POWER ? KC_PWR : KC_SLEP);
+    }
+}
+
 void keyboard_post_init_user(void) {
     decay_timer = timer_read32();
 
@@ -296,6 +317,8 @@ void keyboard_post_init_user(void) {
         if (via_was_reset || (uint16_t)eeconfig_read_user() != VIAL_INIT_MAGIC) {
             init_vial_defaults();
         }
+    } else {
+        transaction_register_rpc(RPC_ID_POWER_HOLD, power_hold_slave_handler);
     }
 }
 
@@ -377,10 +400,34 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
             }
         }
     }
+
+    // Power key progress: columns go dark (sleep) or red (power off) from right to left
+    if (power_hold.mode != HOLD_NONE) {
+        uint32_t elapsed = sync_timer_elapsed32(power_hold.start);
+        if (elapsed > POWER_HOLD_MS) elapsed = POWER_HOLD_MS;
+        uint8_t threshold = 225 - (elapsed * 225) / POWER_HOLD_MS; // LED x spans 0-224
+        uint8_t red       = power_hold.mode == HOLD_POWER ? RGB_MATRIX_MAXIMUM_BRIGHTNESS : 0;
+        for (uint8_t i = led_min; i < led_max; i++) {
+            if (g_led_config.point[i].x >= threshold) rgb_matrix_set_color(i, red, 0, 0);
+        }
+    }
     return false;
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (keycode == PWR_HOLD) {
+        if (record->event.pressed) {
+            power_hold.mode  = get_highest_layer(layer_state) != _QWERTY ? HOLD_POWER : HOLD_SLEEP;
+            power_hold.start = sync_timer_read32();
+        } else {
+            if (power_hold_fired) unregister_code16(power_hold.mode == HOLD_POWER ? KC_PWR : KC_SLEP);
+            power_hold.mode = HOLD_NONE;
+        }
+        power_hold_fired = false;
+        power_hold_dirty = true;
+        return false;
+    }
+
 #ifdef OLED_ENABLE
     // Skip combo/encoder events, their row/col are not matrix positions
     if (is_keyboard_master() && record->event.pressed && IS_KEYEVENT(record->event)) {
@@ -401,6 +448,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 void housekeeping_task_user(void) {
+    if (is_keyboard_master()) power_hold_task();
+
     // timer_read32() does a 64-bit division on ChibiOS, read it once per loop
     uint32_t now = timer_read32();
 

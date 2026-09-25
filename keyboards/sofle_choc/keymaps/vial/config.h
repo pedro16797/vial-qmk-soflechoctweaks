@@ -40,6 +40,9 @@
 
 
 #define OLED_UPDATE_INTERVAL 90
+#define OLED_FONT_H "keyboards/sofle_choc/keymaps/vial/font_es.c"
+#define OLED_FONT_START 0x20
+#define OLED_FONT_END 0x8D
 #define I2C1_CLOCK_SPEED 400000
 #define RGB_MATRIX_MAXIMUM_FPS 30
 

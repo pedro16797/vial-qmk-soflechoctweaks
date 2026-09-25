@@ -149,21 +149,99 @@ static power_hold_t power_hold;
 static bool         power_hold_fired, power_hold_dirty;
 
 #ifdef OLED_ENABLE
-static const char PROGMEM matrix_to_ascii[5][6] = {
-    {0, '|', '@', '#', '&', '$'},
-    {0, 'Q', 'W', 'E', 'R', 'T'},
-    {0, 'A', 'S', 'D', 'F', 'G'},
-    {0, 'Z', 'X', 'C', 'V', 'B'},
-    {0,  0 ,  0 , '0',  0 ,  0 }
+// Extra glyphs in font_es.c
+enum {
+    ES_NTIL = 0x80, ES_NTIL_U, ES_CCED, ES_CCED_U, ES_ORD_M, ES_ORD_F, ES_MDOT,
+    ES_EURO, ES_NOT, ES_IEXC, ES_IQUE, ES_ACUT, ES_DIAE, ES_ENTER
 };
 
-static const char PROGMEM matrix_to_ascii_right[5][6] = {
-    {0, '?', '!', '/', '>', '<'},
-    {0, 'P', 'O', 'I', 'U', 'Y'},
-    {0, 'N', 'L', 'K', 'J', 'H'},
-    {0, '-', '.', ',', 'M', 'N'},
-    {0,  0,   0,   0 ,  0 ,  0 }
+// What Windows set to Spanish (Spain) prints for KC_A..KC_SLSH: plain, Shift, AltGr
+static const uint8_t PROGMEM es_chars[][3] = {
+    {'a', 'A', 0},              // KC_A
+    {'b', 'B', 0},              // KC_B
+    {'c', 'C', 0},              // KC_C
+    {'d', 'D', 0},              // KC_D
+    {'e', 'E', ES_EURO},        // KC_E
+    {'f', 'F', 0},              // KC_F
+    {'g', 'G', 0},              // KC_G
+    {'h', 'H', 0},              // KC_H
+    {'i', 'I', 0},              // KC_I
+    {'j', 'J', 0},              // KC_J
+    {'k', 'K', 0},              // KC_K
+    {'l', 'L', 0},              // KC_L
+    {'m', 'M', 0},              // KC_M
+    {'n', 'N', 0},              // KC_N
+    {'o', 'O', 0},              // KC_O
+    {'p', 'P', 0},              // KC_P
+    {'q', 'Q', 0},              // KC_Q
+    {'r', 'R', 0},              // KC_R
+    {'s', 'S', 0},              // KC_S
+    {'t', 'T', 0},              // KC_T
+    {'u', 'U', 0},              // KC_U
+    {'v', 'V', 0},              // KC_V
+    {'w', 'W', 0},              // KC_W
+    {'x', 'X', 0},              // KC_X
+    {'y', 'Y', 0},              // KC_Y
+    {'z', 'Z', 0},              // KC_Z
+    {'1', '!', '|'},            // KC_1
+    {'2', '"', '@'},            // KC_2
+    {'3', ES_MDOT, '#'},        // KC_3
+    {'4', '$', '~'},            // KC_4
+    {'5', '%', ES_EURO},        // KC_5
+    {'6', '&', ES_NOT},         // KC_6
+    {'7', '/', 0},              // KC_7
+    {'8', '(', 0},              // KC_8
+    {'9', ')', 0},              // KC_9
+    {'0', '=', 0},              // KC_0
+    {ES_ENTER, ES_ENTER, 0},    // KC_ENT
+    {0, 0, 0},                  // KC_ESC
+    {0, 0, 0},                  // KC_BSPC
+    {0, 0, 0},                  // KC_TAB
+    {'_', '_', 0},              // KC_SPC
+    {'\'', '?', 0},             // KC_MINS
+    {ES_IEXC, ES_IQUE, 0},      // KC_EQL
+    {'`', '^', '['},            // KC_LBRC
+    {'+', '*', ']'},            // KC_RBRC
+    {ES_CCED, ES_CCED_U, '}'},  // KC_BSLS
+    {ES_CCED, ES_CCED_U, '}'},  // KC_NUHS
+    {ES_NTIL, ES_NTIL_U, 0},    // KC_SCLN
+    {ES_ACUT, ES_DIAE, '{'},    // KC_QUOT
+    {ES_ORD_M, ES_ORD_F, '\\'}, // KC_GRV
+    {',', ';', 0},              // KC_COMM
+    {'.', ':', 0},              // KC_DOT
+    {'-', '_', 0},              // KC_SLSH
 };
+
+static uint8_t es_char(uint16_t keycode) {
+    uint8_t mods = get_mods() | get_oneshot_mods();
+    if (IS_QK_MODS(keycode)) {
+        uint8_t m = QK_MODS_GET_MODS(keycode);
+        mods |= (m & 0x10) ? (m & 0x0F) << 4 : m;
+        keycode = QK_MODS_GET_BASIC_KEYCODE(keycode);
+    }
+    // Windows treats Ctrl+Alt as AltGr; any other Ctrl/Alt/Win combo is a shortcut, not text
+    bool altgr = (mods & MOD_BIT(KC_RALT)) || ((mods & MOD_MASK_CTRL) && (mods & MOD_MASK_ALT));
+    if (!altgr && (mods & (MOD_MASK_CTRL | MOD_MASK_ALT | MOD_MASK_GUI))) return 0;
+    bool shift = mods & MOD_MASK_SHIFT;
+
+    switch (keycode) {
+        case KC_A ... KC_SLSH: {
+            bool cased = keycode <= KC_Z || keycode == KC_SCLN || keycode == KC_BSLS || keycode == KC_NUHS;
+            if (cased && !altgr && host_keyboard_led_state().caps_lock) shift = !shift;
+            return pgm_read_byte(&es_chars[keycode - KC_A][altgr ? 2 : shift]);
+        }
+        case KC_NUBS: return altgr ? 0 : (shift ? '>' : '<');
+        case KC_KP_1 ... KC_KP_9: return '1' + (keycode - KC_KP_1);
+        case KC_KP_0: return '0';
+        case KC_PDOT: return '.';
+        case KC_PSLS: return '/';
+        case KC_PAST: return '*';
+        case KC_PMNS: return '-';
+        case KC_PPLS: return '+';
+        case KC_PENT: return ES_ENTER;
+        default:      return 0;
+    }
+}
 
 typedef struct {
     char     c;
@@ -467,19 +545,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
 
 #ifdef OLED_ENABLE
-    // Skip combo/encoder events, their row/col are not matrix positions
-    if (is_keyboard_master() && record->event.pressed && IS_KEYEVENT(record->event)) {
-        uint8_t r = record->event.key.row;
-        uint8_t c = record->event.key.col;
-        char    c_ascii = 0;
-        if (r < 5) {
-            c_ascii = pgm_read_byte(&matrix_to_ascii[r][c]);
-        } else {
-            c_ascii = pgm_read_byte(&matrix_to_ascii_right[r - 5][c]);
-        }
-        if (c_ascii) {
-            add_to_buffer_at(c_ascii, (uint8_t)(timer_read32() % 5));
-        }
+    // Show what the host will print; combos arrive with their output keycode
+    if (is_keyboard_master() && record->event.pressed) {
+        uint8_t c = es_char(keycode);
+        if (c) add_to_buffer_at((char)c, (uint8_t)(timer_read32() % 5));
     }
 #endif
     return true;

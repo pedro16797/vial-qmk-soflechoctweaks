@@ -170,6 +170,9 @@ typedef struct {
     uint32_t timestamp;
 } typing_char_t;
 
+// Rows advance at the OLED refresh rate so every step is drawn
+#define WATERFALL_ROW_MS OLED_UPDATE_INTERVAL
+
 typing_char_t typing_buffer[32];
 uint8_t       typing_buffer_index = 0;
 
@@ -210,15 +213,14 @@ static bool render_status_slave(void) {
         default:      oled_write_raw_P(img_empty_32, 128); break;
     }
 
-    oled_set_cursor(0, 5);
+    // Layer 0-3, mods 4-11 (2 lines each), caps 12-15
+    oled_set_cursor(0, 4);
     oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
-    oled_set_cursor(0, 5);
-    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
-    oled_set_cursor(0, 7);
+    oled_set_cursor(0, 6);
     oled_write_raw_P((current_mods & MOD_MASK_CTRL) ? img_mod_ctrl : img_empty_12, 64);
-    oled_set_cursor(0, 9);
+    oled_set_cursor(0, 8);
     oled_write_raw_P((current_mods & MOD_MASK_ALT) ? img_mod_alt : img_empty_12, 64);
-    oled_set_cursor(0, 11);
+    oled_set_cursor(0, 10);
     oled_write_raw_P((current_mods & MOD_MASK_GUI) ? img_mod_gui : img_empty_12, 64);
     oled_set_cursor(0, 12);
     oled_write_raw_P(current_caps ? img_lock_caps_on : img_lock_caps_off, 128);
@@ -289,8 +291,6 @@ void keyboard_post_init_user(void) {
 
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
-    static bool is_on = false;
-
     if (!is_keyboard_master()) {
         if (render_status_slave()) {
             oled_on();
@@ -298,50 +298,37 @@ bool oled_task_user(void) {
         return false;
     }
 
-    bool any_active = false;
+    // Only cells that changed since the last frame are written, keeping I2C traffic minimal
+    static char shown[16][5];
+    char        grid[16][5] = {{0}};
+    bool        any_active  = false;
+
     for (uint8_t i = 0; i < 32; i++) {
-        if (typing_buffer[i].c != '\0') {
-            any_active = true;
-            break;
+        if (typing_buffer[i].c == '\0') continue;
+        uint32_t elapsed = timer_elapsed32(typing_buffer[i].timestamp);
+        if (elapsed >= WATERFALL_ROW_MS * 16) {
+            typing_buffer[i].c = '\0';
+            continue;
+        }
+        // Sliding up effect: Start at row 15 and slide towards row 0
+        uint8_t row = 15 - (uint8_t)((elapsed * (65536 / WATERFALL_ROW_MS)) >> 16);
+        grid[row][typing_buffer[i].x] = typing_buffer[i].c;
+        any_active = true;
+    }
+
+    for (uint8_t r = 0; r < 16; r++) {
+        for (uint8_t x = 0; x < 5; x++) {
+            if (grid[r][x] == shown[r][x]) continue;
+            shown[r][x] = grid[r][x];
+            oled_set_cursor(x, r);
+            oled_write_char(grid[r][x] ? grid[r][x] : ' ', false);
         }
     }
 
-    if (!any_active) {
-        if (is_on) {
-            oled_clear();
-            oled_off();
-            is_on = false;
-        }
-        return false;
-    }
-
-    if (!is_on) {
+    if (any_active) {
         oled_on();
-        is_on = true;
-    }
-
-    oled_set_cursor(0, 0);
-    oled_write_P(PSTR("     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     \n     "), false);
-
-    for (uint8_t i = 0; i < 32; i++) {
-        if (typing_buffer[i].c != '\0') {
-            uint32_t elapsed = timer_elapsed32(typing_buffer[i].timestamp);
-            // Sliding up effect: Start at row 15 and slide towards row 0
-            int8_t row = 15 - (int8_t)((elapsed * 437) >> 16);
-
-            if (row >= 0 && row <= 15) {
-                oled_set_cursor(typing_buffer[i].x, (uint8_t)row);
-                if (typing_buffer[i].c == 0x1B) {
-                    oled_write_P(PSTR("\x1B"), false);
-                } else {
-                    char buf[2] = {typing_buffer[i].c, '\0'};
-                    oled_write(buf, false);
-                }
-            } else {
-                // Character moved off screen (row < 0)
-                typing_buffer[i].c = '\0';
-            }
-        }
+    } else if (is_oled_on()) {
+        oled_off();
     }
     return false;
 }
@@ -349,7 +336,8 @@ bool oled_task_user(void) {
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 #ifdef OLED_ENABLE
-    if (is_keyboard_master() && record->event.pressed) {
+    // Skip combo/encoder events, their row/col are not matrix positions
+    if (is_keyboard_master() && record->event.pressed && IS_KEYEVENT(record->event)) {
         uint8_t r = record->event.key.row;
         uint8_t c = record->event.key.col;
         char    c_ascii = 0;

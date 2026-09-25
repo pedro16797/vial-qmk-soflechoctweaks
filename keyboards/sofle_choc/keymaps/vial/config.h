@@ -24,9 +24,11 @@
 //
 // I've found this helps with some ProMicros where the slave does not boot
 #define SPLIT_USB_DETECT
+// If the PC is off at power-up both halves boot as slave; a slave that never
+// hears from a master reboots and retries, so the USB half becomes master once the PC is on
+#define SPLIT_WATCHDOG_ENABLE
 
 #define RGB_DISABLE_WHEN_USB_SUSPENDED     // turn off effects when suspended
-#define SPLIT_TRANSPORT_MIRROR             // If LED_MATRIX_KEYPRESSES or LED_MATRIX_KEYRELEASES is enabled, you also will want to enable SPLIT_TRANSPORT_MIRROR
 #define RGB_MATRIX_MAXIMUM_BRIGHTNESS 100  // limits maximum brightness of LEDs (max 255). Higher may cause the controller to crash.
 
 // Vial Support
@@ -37,14 +39,12 @@
 #define VIAL_UNLOCK_COMBO_COLS { 0, 0, 0, 0 }
 
 
-#define RGB_MATRIX_FRAMEBUFFER_EFFECTS
-#define RGB_MATRIX_KEYPRESSES
-
-#define OLED_UPDATE_INTERVAL 120
+#define OLED_UPDATE_INTERVAL 90
+#define OLED_FONT_H "keyboards/sofle_choc/keymaps/vial/font_es.c"
+#define OLED_FONT_START 0x20
+#define OLED_FONT_END 0x8D
 #define I2C1_CLOCK_SPEED 400000
 #define RGB_MATRIX_MAXIMUM_FPS 30
-
-#define BACKLIGHT_BREATHING
 
 /* Sprint 1.1: smoother precise dial rotation */
 #define ENCODER_RESOLUTION 4
@@ -53,14 +53,13 @@
 #define SPLIT_LAYER_STATE_ENABLE
 #define SPLIT_LED_STATE_ENABLE
 #define SPLIT_MODS_ENABLE
+#define SPLIT_TRANSACTION_IDS_USER RPC_ID_POWER_HOLD
 
 #define ENABLE_RGB_MATRIX_PASTEL_PULSE
+#define RGB_MATRIX_DEFAULT_MODE RGB_MATRIX_CUSTOM_pastel_pulse
 
 /* Sprint 1.3: Vial Dynamic Combo Support */
 #define VIAL_COMBO_ENTRIES 4
-
-/* Vial Dynamic Tap Dance Support */
-#define VIAL_TAP_DANCE_ENTRIES 2
 
 #define TAPPING_TERM 200
 #define PERMISSIVE_HOLD

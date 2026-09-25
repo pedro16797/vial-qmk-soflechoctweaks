@@ -20,16 +20,16 @@ jobs:
       - name: Build firmware (Left)
         run: |
           git config --global --add safe.directory $(pwd)
-          qmk compile -kb sofle_choc -km vial -e CONVERT_TO=promicro_rp2040 -e MASTER=LEFT
+          qmk compile -kb sofle_choc -km vial -e CONVERT_TO=sparkfun_pm2040 -e SIDE=left
           mkdir -p dist
-          [ -f sofle_choc_vial_promicro_rp2040.uf2 ] && mv sofle_choc_vial_promicro_rp2040.uf2 dist/sofle_choc_vial_left.uf2
+          [ -f sofle_choc_vial_sparkfun_pm2040.uf2 ] && mv sofle_choc_vial_sparkfun_pm2040.uf2 dist/sofle_choc_vial_left.uf2
 
       - name: Build firmware (Right)
         run: |
           git config --global --add safe.directory $(pwd)
-          qmk compile -kb sofle_choc -km vial -e CONVERT_TO=promicro_rp2040 -e MASTER=RIGHT
+          qmk compile -kb sofle_choc -km vial -e CONVERT_TO=sparkfun_pm2040 -e SIDE=right
           mkdir -p dist
-          [ -f sofle_choc_vial_promicro_rp2040.uf2 ] && mv sofle_choc_vial_promicro_rp2040.uf2 dist/sofle_choc_vial_right.uf2
+          [ -f sofle_choc_vial_sparkfun_pm2040.uf2 ] && mv sofle_choc_vial_sparkfun_pm2040.uf2 dist/sofle_choc_vial_right.uf2
 
       - name: Prepare Artifacts
         run: |

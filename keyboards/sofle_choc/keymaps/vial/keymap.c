@@ -149,6 +149,7 @@ uint32_t decay_timer   = 0;
 
 static bool    boost_active = false;
 static uint8_t local_row_min, local_led_min, local_led_max;
+static uint32_t thumb_led_mask = 0; // Local thumb row, bit = LED index - local_led_min
 
 #ifdef OLED_ENABLE
 static const char PROGMEM matrix_to_ascii[5][6] = {
@@ -272,6 +273,11 @@ void keyboard_post_init_user(void) {
     local_led_min         = is_left ? 0 : split[0];
     local_led_max         = is_left ? split[0] : RGB_MATRIX_LED_COUNT;
 
+    for (uint8_t c = 0; c < MATRIX_COLS; c++) {
+        uint8_t led = g_led_config.matrix_co[local_row_min + 4][c];
+        if (led != NO_LED) thumb_led_mask |= 1UL << (led - local_led_min);
+    }
+
     // F1-F12 block: rows 1-3, cols 1-4 of the left half
     for (uint8_t r = 1; r <= 3; r++) {
         for (uint8_t c = 1; c <= 4; c++) {
@@ -357,6 +363,19 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
             rgb_matrix_set_color(i, 0, 0, 0);
         }
         return false;
+    }
+
+    // Link lost: pulse the master's thumb row red (only after the halves have talked once)
+    static bool link_seen = false;
+    if (is_keyboard_master()) {
+        if (split_watchdog_check()) link_seen = true;
+        if (link_seen && !is_transport_connected()) {
+            uint16_t t     = g_rgb_timer & 1023;
+            uint8_t  level = ((t < 512 ? t : 1023 - t) * RGB_MATRIX_MAXIMUM_BRIGHTNESS) >> 9;
+            for (uint8_t i = led_min; i < led_max; i++) {
+                if (thumb_led_mask & (1UL << (i - local_led_min))) rgb_matrix_set_color(i, level, 0, 0);
+            }
+        }
     }
     return false;
 }

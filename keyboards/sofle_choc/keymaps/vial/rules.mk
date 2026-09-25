@@ -17,6 +17,9 @@ TAP_DANCE_ENABLE = no
 RGB_MATRIX_ENABLE = yes
 RGB_MATRIX_CUSTOM_USER = yes
 SPLIT_KEYBOARD = yes
+CAPS_WORD_ENABLE = no
+LAYER_LOCK_ENABLE = no
+REPEAT_KEY_ENABLE = no
 
 # Handedness stored in EEPROM so USB can go into either half; CI builds each side with SIDE=left/right
 ifeq ($(strip $(SIDE)), left)

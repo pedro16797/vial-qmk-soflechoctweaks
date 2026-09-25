@@ -65,6 +65,7 @@ void via_init_kb(void) {
 
 #ifdef RGB_MATRIX_ENABLE
 #    include "rgb_matrix.h"
+#    include "lib/lib8tion/lib8tion.h"
 #endif
 
 enum layers {
@@ -115,9 +116,9 @@ const uint16_t PROGMEM keymaps[4][MATRIX_ROWS][MATRIX_COLS] = {
     // Row 0
     KC_TRNS,  KC_TRNS,    KC_TRNS,    KC_TRNS,    KC_TRNS,    KC_TRNS,                          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     // Row 1
-    KC_TRNS,  KC_F1,      KC_F2,      KC_F3,      KC_F4,      KC_TRNS,                          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+    KC_TRNS,  KC_F1,      KC_F2,      KC_F3,      KC_F4,      KC_TRNS,                          RM_NEXT, RM_VALU, RM_HUEU, RM_SPDU, RM_SATU, KC_TRNS,
     // Row 2
-    KC_TRNS,  KC_F5,      KC_F6,      KC_F7,      KC_F8,      KC_TRNS,                          KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
+    KC_TRNS,  KC_F5,      KC_F6,      KC_F7,      KC_F8,      KC_TRNS,                          RM_PREV, RM_VALD, RM_HUED, RM_SPDD, RM_SATD, KC_TRNS,
     // Row 3
     KC_TRNS,  KC_F9,      KC_F10,     KC_F11,     KC_F12,     KC_TRNS, KC_BTN2,   KC_BTN1,      KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,
     // Thumb Row
@@ -370,6 +371,50 @@ bool oled_task_user(void) {
 }
 #endif
 
+// Adjust layer light controls (top row raises, home row lowers), each lit with the result it would give
+enum { PREVIEW_MODE, PREVIEW_VAL, PREVIEW_HUE, PREVIEW_SPD, PREVIEW_SAT };
+static const struct {
+    uint8_t row, col, kind;
+    int8_t  dir;
+} PROGMEM light_keys[] = {
+    {6, 5, PREVIEW_MODE, 1}, {6, 4, PREVIEW_VAL, 1}, {6, 3, PREVIEW_HUE, 1}, {6, 2, PREVIEW_SPD, 1}, {6, 1, PREVIEW_SAT, 1},
+    {7, 5, PREVIEW_MODE, -1}, {7, 4, PREVIEW_VAL, -1}, {7, 3, PREVIEW_HUE, -1}, {7, 2, PREVIEW_SPD, -1}, {7, 1, PREVIEW_SAT, -1},
+};
+
+// Defined in rgb_matrix_user.inc
+uint8_t pastel_mode_flags(uint8_t mode);
+rgb_t   pastel_led_color(uint8_t flags, uint8_t i, hsv_t hsv, uint8_t time);
+
+static void light_key_previews(uint8_t led_min, uint8_t led_max) {
+    hsv_t   cur   = rgb_matrix_get_hsv();
+    uint8_t speed = rgb_matrix_get_speed();
+    uint8_t mode  = rgb_matrix_get_mode();
+    for (uint8_t k = 0; k < ARRAY_SIZE(light_keys); k++) {
+        uint8_t led = g_led_config.matrix_co[pgm_read_byte(&light_keys[k].row)][pgm_read_byte(&light_keys[k].col)];
+        if (led < led_min || led >= led_max) continue;
+        uint8_t kind = pgm_read_byte(&light_keys[k].kind);
+        bool    up   = (int8_t)pgm_read_byte(&light_keys[k].dir) > 0;
+        hsv_t   hsv  = cur;
+        uint8_t spd  = speed;
+        uint8_t m    = mode;
+        switch (kind) {
+            case PREVIEW_MODE: // Same wrap-around as rgb_matrix_step()/step_reverse()
+                m = up ? (m + 1 < RGB_MATRIX_EFFECT_MAX ? m + 1 : 1) : (m > 1 ? m - 1 : RGB_MATRIX_EFFECT_MAX - 1);
+                break;
+            case PREVIEW_VAL:
+                hsv.v = up ? qadd8(hsv.v, RGB_MATRIX_VAL_STEP) : qsub8(hsv.v, RGB_MATRIX_VAL_STEP);
+                if (hsv.v > RGB_MATRIX_MAXIMUM_BRIGHTNESS) hsv.v = RGB_MATRIX_MAXIMUM_BRIGHTNESS;
+                break;
+            case PREVIEW_HUE: hsv.h += up ? RGB_MATRIX_HUE_STEP : -RGB_MATRIX_HUE_STEP; break;
+            case PREVIEW_SPD: spd = up ? qadd8(spd, RGB_MATRIX_SPD_STEP) : qsub8(spd, RGB_MATRIX_SPD_STEP); break;
+            case PREVIEW_SAT: hsv.s = up ? qadd8(hsv.s, RGB_MATRIX_SAT_STEP) : qsub8(hsv.s, RGB_MATRIX_SAT_STEP); break;
+        }
+        // Same per-LED maths as the effects themselves (Adjust never reverses the drift)
+        rgb_t rgb = pastel_led_color(pastel_mode_flags(m), led, hsv, (g_rgb_timer * spd) >> 10);
+        rgb_matrix_set_color(led, rgb.r, rgb.g, rgb.b);
+    }
+}
+
 bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
     // No master yet (PC off), keep the LEDs dark while the split watchdog retries
     if (!is_keyboard_master() && !split_watchdog_check()) {
@@ -391,6 +436,8 @@ bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
             }
         }
     }
+
+    if (get_highest_layer(layer_state) == _ADJUST) light_key_previews(led_min, led_max);
 
     // Power key progress: columns go dark (sleep) or red (power off) from right to left
     if (power_hold.mode != HOLD_NONE) {

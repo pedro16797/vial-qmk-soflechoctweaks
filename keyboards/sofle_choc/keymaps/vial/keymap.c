@@ -21,8 +21,9 @@
 
 #define VIAL_INIT_MAGIC 0x564B
 
+// Vial resets its EEPROM on the first boot of every new build (random BUILD_ID),
+// so defaults are re-applied whenever that happens
 static void init_vial_defaults(void) {
-    dynamic_keymap_reset();
     vial_tap_dance_entry_t td0 = {
         .on_tap = KC_MPLY,
         .on_hold = KC_NO,
@@ -47,14 +48,15 @@ static void init_vial_defaults(void) {
     };
     dynamic_keymap_set_combo(0, &combo0);
 
-    // Force the keymap to use TD(0) and TD(1) in EEPROM
-    // [5, 0] is top-right-most
-    dynamic_keymap_set_keycode(0, 5, 0, TD(0));
-    // [9, 0] is right-most thumb key
-    dynamic_keymap_set_keycode(0, 9, 0, TD(1));
-
     eeconfig_update_user(VIAL_INIT_MAGIC);
     vial_init();
+}
+
+static bool via_was_reset = false;
+
+void via_init_kb(void) {
+    // Runs just before via_init() checks the magic and resets on mismatch
+    via_was_reset = !via_eeprom_is_valid();
 }
 
 #include "assets/lyr_qwerty.h"
@@ -279,7 +281,7 @@ void keyboard_post_init_user(void) {
 
     // One-time initialization for Vial defaults
     if (is_keyboard_master()) {
-        if ((uint16_t)eeconfig_read_user() != VIAL_INIT_MAGIC) {
+        if (via_was_reset || (uint16_t)eeconfig_read_user() != VIAL_INIT_MAGIC) {
             init_vial_defaults();
         }
     }

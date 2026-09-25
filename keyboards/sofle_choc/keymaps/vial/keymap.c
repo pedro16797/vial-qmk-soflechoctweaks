@@ -53,10 +53,12 @@ void via_init_kb(void) {
 #include "assets/mod_ctrl.h"
 #include "assets/mod_alt.h"
 #include "assets/mod_gui.h"
+#include "assets/mod_shift_off.h"
+#include "assets/mod_ctrl_off.h"
+#include "assets/mod_alt_off.h"
+#include "assets/mod_gui_off.h"
 #include "assets/lock_caps_on.h"
 #include "assets/lock_caps_off.h"
-#include "assets/img_empty_32.h"
-#include "assets/img_empty_12.h"
 
 #ifdef SPLIT_KEYBOARD
 #    include "quantum/split_common/transactions.h"
@@ -285,22 +287,21 @@ static bool render_status_slave(void) {
 
     oled_set_cursor(0, 0);
     switch (get_highest_layer(current_layer_state)) {
-        case _QWERTY: oled_write_raw_P(img_lyr_qwerty, 128); break;
         case _LOWER:  oled_write_raw_P(img_lyr_lower, 128); break;
         case _RAISE:  oled_write_raw_P(img_lyr_raise, 128); break;
         case _ADJUST: oled_write_raw_P(img_lyr_adjust, 128); break;
-        default:      oled_write_raw_P(img_empty_32, 128); break;
+        default:      oled_write_raw_P(img_lyr_qwerty, 128); break;
     }
 
     // Layer 0-3, mods 4-11 (2 lines each), caps 12-15
     oled_set_cursor(0, 4);
-    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_empty_12, 64);
+    oled_write_raw_P((current_mods & MOD_MASK_SHIFT) ? img_mod_shift : img_mod_shift_off, 64);
     oled_set_cursor(0, 6);
-    oled_write_raw_P((current_mods & MOD_MASK_CTRL) ? img_mod_ctrl : img_empty_12, 64);
+    oled_write_raw_P((current_mods & MOD_MASK_CTRL) ? img_mod_ctrl : img_mod_ctrl_off, 64);
     oled_set_cursor(0, 8);
-    oled_write_raw_P((current_mods & MOD_MASK_ALT) ? img_mod_alt : img_empty_12, 64);
+    oled_write_raw_P((current_mods & MOD_MASK_ALT) ? img_mod_alt : img_mod_alt_off, 64);
     oled_set_cursor(0, 10);
-    oled_write_raw_P((current_mods & MOD_MASK_GUI) ? img_mod_gui : img_empty_12, 64);
+    oled_write_raw_P((current_mods & MOD_MASK_GUI) ? img_mod_gui : img_mod_gui_off, 64);
     oled_set_cursor(0, 12);
     oled_write_raw_P(current_caps ? img_lock_caps_on : img_lock_caps_off, 128);
 

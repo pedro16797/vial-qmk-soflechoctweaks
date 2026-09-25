@@ -26,7 +26,6 @@
 #define SPLIT_USB_DETECT
 
 #define RGB_DISABLE_WHEN_USB_SUSPENDED     // turn off effects when suspended
-#define SPLIT_TRANSPORT_MIRROR             // If LED_MATRIX_KEYPRESSES or LED_MATRIX_KEYRELEASES is enabled, you also will want to enable SPLIT_TRANSPORT_MIRROR
 #define RGB_MATRIX_MAXIMUM_BRIGHTNESS 100  // limits maximum brightness of LEDs (max 255). Higher may cause the controller to crash.
 
 // Vial Support
@@ -37,14 +36,9 @@
 #define VIAL_UNLOCK_COMBO_COLS { 0, 0, 0, 0 }
 
 
-#define RGB_MATRIX_FRAMEBUFFER_EFFECTS
-#define RGB_MATRIX_KEYPRESSES
-
 #define OLED_UPDATE_INTERVAL 90
 #define I2C1_CLOCK_SPEED 400000
 #define RGB_MATRIX_MAXIMUM_FPS 30
-
-#define BACKLIGHT_BREATHING
 
 /* Sprint 1.1: smoother precise dial rotation */
 #define ENCODER_RESOLUTION 4

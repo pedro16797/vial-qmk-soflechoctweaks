@@ -4,9 +4,8 @@ RGB_MATRIX_EFFECT(pastel_pulse)
 
 #include <stdlib.h>
 
-extern volatile uint8_t led_boost[RGB_MATRIX_LED_COUNT];
-extern uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
-extern uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
+extern uint8_t led_boost[RGB_MATRIX_LED_COUNT];
+extern uint32_t fkey_led_mask;
 extern layer_state_t layer_state;
 extern uint32_t g_rgb_timer;
 extern bool is_keyboard_left(void);
@@ -26,25 +25,16 @@ bool pastel_pulse(effect_params_t* params) {
     bool is_layer3_left = (layer == 3 && is_left);
 
     uint32_t time_base = (layer == 1 || layer == 2) ? (0 - g_rgb_timer) : g_rgb_timer;
-    uint32_t time = (uint32_t)(((uint64_t)time_base * speed) >> 10);
-    uint8_t hue_base = (uint8_t)(global_h + time);
+    // Only the low 8 bits are used, so a wrapping 32-bit multiply is exact
+    uint8_t hue_base = (uint8_t)(global_h + ((time_base * speed) >> 10));
 
-    uint8_t local_min = is_left ? 0 : 29;
-    uint8_t local_max = is_left ? 29 : RGB_MATRIX_LED_COUNT;
-
+    // led_min/led_max are already limited to this half
     for (uint8_t i = led_min; i < led_max; i++) {
-        if (i < local_min || i >= local_max) continue;
         RGB_MATRIX_TEST_LED_FLAGS();
 
-        if (is_layer3_left) {
-            uint8_t row = led_to_row[i];
-            uint8_t col = led_to_col[i];
-
-            if ((col >= 1 && col <= 4 && row >= 1 && row <= 8 && row != 4) ||
-                (col == 5 && (row == 4 || row == 9))) {
-                rgb_matrix_set_color(i - local_min, 255, 255, 255);
-                continue;
-            }
+        if (is_layer3_left && (fkey_led_mask & (1UL << i))) {
+            rgb_matrix_set_color(i, 255, 255, 255);
+            continue;
         }
 
         uint8_t boost = led_boost[i];
@@ -84,9 +74,9 @@ bool pastel_pulse(effect_params_t* params) {
             }
         }
 
-        rgb_matrix_set_color(i - local_min, final_rgb.r, final_rgb.g, final_rgb.b);
+        rgb_matrix_set_color(i, final_rgb.r, final_rgb.g, final_rgb.b);
     }
-    return led_max < local_max;
+    return rgb_matrix_check_finished_leds(led_max);
 }
 
 #endif // RGB_MATRIX_CUSTOM_EFFECT_IMPLS

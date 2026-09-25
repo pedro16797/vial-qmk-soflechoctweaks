@@ -142,10 +142,12 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     return update_tri_layer_state(state, _LOWER, _RAISE, _ADJUST);
 }
 
-volatile uint8_t led_boost[RGB_MATRIX_LED_COUNT];
-uint8_t led_to_row[RGB_MATRIX_LED_COUNT];
-uint8_t led_to_col[RGB_MATRIX_LED_COUNT];
-uint32_t decay_timer = 0;
+uint8_t  led_boost[RGB_MATRIX_LED_COUNT];
+uint32_t fkey_led_mask = 0; // Left-half LEDs lit white on _ADJUST
+uint32_t decay_timer   = 0;
+
+static bool    boost_active = false;
+static uint8_t local_row_min, local_led_min, local_led_max;
 
 #ifdef OLED_ENABLE
 static const char PROGMEM matrix_to_ascii[5][6] = {
@@ -230,11 +232,6 @@ static bool render_status_slave(void) {
 
 #endif
 
-typedef struct {
-    uint8_t row;
-    uint8_t col;
-} key_hit_t;
-
 void apply_key_boost(uint8_t row, uint8_t col) {
     uint8_t led_index = g_led_config.matrix_co[row][col];
     if (led_index == NO_LED || led_index >= RGB_MATRIX_LED_COUNT) return;
@@ -249,35 +246,36 @@ void apply_key_boost(uint8_t row, uint8_t col) {
     } else {
         led_boost[led_index] += add;
     }
+    boost_active = true;
 }
 
 #ifdef OLED_ENABLE
+static bool waterfall_idle = true;
+
 void add_to_buffer_at(char c, uint8_t x) {
     typing_buffer[typing_buffer_index].c         = c;
     typing_buffer[typing_buffer_index].x         = x;
     typing_buffer[typing_buffer_index].timestamp = timer_read32();
     typing_buffer_index                          = (typing_buffer_index + 1) & 0x1F;
+    waterfall_idle                               = false;
 }
 #endif
 
 void keyboard_post_init_user(void) {
     decay_timer = timer_read32();
 
-    // Initialize state
-    for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-        led_boost[i] = 0;
-        led_to_row[i] = 255;
-        led_to_col[i] = 255;
-    }
+    // Each half only scans and decays its own rows/LEDs
+    const uint8_t split[] = RGB_MATRIX_SPLIT;
+    bool          is_left = is_keyboard_left();
+    local_row_min         = is_left ? 0 : MATRIX_ROWS / 2;
+    local_led_min         = is_left ? 0 : split[0];
+    local_led_max         = is_left ? split[0] : RGB_MATRIX_LED_COUNT;
 
-    // Pre-populate LED to Matrix mapping for fast/safe shader lookup
-    for (uint8_t r = 0; r < MATRIX_ROWS; r++) {
-        for (uint8_t c = 0; c < MATRIX_COLS; c++) {
+    // F1-F12 block: rows 1-3, cols 1-4 of the left half
+    for (uint8_t r = 1; r <= 3; r++) {
+        for (uint8_t c = 1; c <= 4; c++) {
             uint8_t led = g_led_config.matrix_co[r][c];
-            if (led != NO_LED && led < RGB_MATRIX_LED_COUNT) {
-                led_to_row[led] = r;
-                led_to_col[led] = c;
-            }
+            if (led < 32) fkey_led_mask |= 1UL << led;
         }
     }
 
@@ -295,6 +293,12 @@ bool oled_task_user(void) {
         if (render_status_slave()) {
             oled_on();
         }
+        return false;
+    }
+
+    // Screen is already blank, nothing to do until the next keypress
+    if (waterfall_idle) {
+        if (is_oled_on()) oled_off();
         return false;
     }
 
@@ -327,7 +331,8 @@ bool oled_task_user(void) {
 
     if (any_active) {
         oled_on();
-    } else if (is_oled_on()) {
+    } else {
+        waterfall_idle = true;
         oled_off();
     }
     return false;
@@ -355,16 +360,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 void housekeeping_task_user(void) {
+    // timer_read32() does a 64-bit division on ChibiOS, read it once per loop
+    uint32_t now = timer_read32();
+
     static uint32_t visual_scan_timer = 0;
-    if (timer_elapsed32(visual_scan_timer) >= 10) {
-        visual_scan_timer = timer_read32();
+    if (TIMER_DIFF_32(now, visual_scan_timer) >= 10) {
+        visual_scan_timer = now;
 
         static matrix_row_t last_matrix[MATRIX_ROWS];
-        bool is_left = is_keyboard_left();
-        uint8_t r_min = is_left ? 0 : 5;
-        uint8_t r_max = is_left ? 5 : 10;
-
-        for (uint8_t r = r_min; r < r_max; r++) {
+        for (uint8_t r = local_row_min; r < local_row_min + MATRIX_ROWS / 2; r++) {
             matrix_row_t current_row = matrix_get_row(r);
             matrix_row_t diff        = current_row & ~last_matrix[r];
             if (diff) {
@@ -378,19 +382,23 @@ void housekeeping_task_user(void) {
         }
     }
 
-    uint32_t tickLength = 256;
-    uint32_t elapsed = timer_elapsed32(decay_timer);
-    if (elapsed >= tickLength) {
+    // Nothing is glowing, keep the decay clock parked
+    if (!boost_active) {
+        decay_timer = now;
+        return;
+    }
+
+    uint32_t elapsed = TIMER_DIFF_32(now, decay_timer);
+    if (elapsed >= 256) {
         uint32_t ticks = elapsed >> 8;
         decay_timer += ticks << 8;
-        for (uint8_t i = 0; i < RGB_MATRIX_LED_COUNT; i++) {
-            if (led_boost[i] > 0) {
-                uint8_t delta = led_boost[i];
-                if (ticks >= delta) {
-                    led_boost[i] = 0;
-                } else {
-                    led_boost[i] -= (uint8_t)ticks;
-                }
+        boost_active = false;
+        for (uint8_t i = local_led_min; i < local_led_max; i++) {
+            if (led_boost[i] > ticks) {
+                led_boost[i] -= (uint8_t)ticks;
+                boost_active = true;
+            } else {
+                led_boost[i] = 0;
             }
         }
     }

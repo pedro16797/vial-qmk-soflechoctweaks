@@ -279,6 +279,11 @@ void keyboard_post_init_user(void) {
         }
     }
 
+    // Effect indices saved before built-in effects were trimmed may now be out of range
+    if (rgb_matrix_get_mode() >= RGB_MATRIX_EFFECT_MAX) {
+        rgb_matrix_mode(RGB_MATRIX_DEFAULT_MODE);
+    }
+
     // One-time initialization for Vial defaults
     if (is_keyboard_master()) {
         if (via_was_reset || (uint16_t)eeconfig_read_user() != VIAL_INIT_MAGIC) {

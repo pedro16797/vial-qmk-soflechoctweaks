@@ -49,6 +49,7 @@
 #define SPLIT_MODS_ENABLE
 
 #define ENABLE_RGB_MATRIX_PASTEL_PULSE
+#define RGB_MATRIX_DEFAULT_MODE RGB_MATRIX_CUSTOM_pastel_pulse
 
 /* Sprint 1.3: Vial Dynamic Combo Support */
 #define VIAL_COMBO_ENTRIES 4

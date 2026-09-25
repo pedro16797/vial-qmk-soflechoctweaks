@@ -58,9 +58,6 @@
 /* Sprint 1.3: Vial Dynamic Combo Support */
 #define VIAL_COMBO_ENTRIES 4
 
-/* Vial Dynamic Tap Dance Support */
-#define VIAL_TAP_DANCE_ENTRIES 2
-
 #define TAPPING_TERM 200
 #define PERMISSIVE_HOLD
 #define QUICK_TAP_TERM 0

@@ -73,3 +73,27 @@
     * Step 1: `actions/checkout@v4` with `submodules: recursive`.
     * Step 2: Run the QMK Docker compilation command.
     * Step 3: Use `actions/upload-artifact@v4` to target the compiled `.hex`/`.bin` and the `vial.json` file so they are easily downloadable from the GitHub UI.
+
+## Sprint 6: Bug Fixes & Performance Pass [Completed]
+**Goal:** Reduce CPU and I2C load to leave headroom for future features.
+
+* **6.1 Waterfall OLED:** Only redraw cells that changed instead of clearing and rewriting the whole screen every frame. Fixed row wraparound for stale entries and the master OLED staying on at boot. Rows now advance every 90ms, matching `OLED_UPDATE_INTERVAL`.
+* **6.2 Input Filtering:** Ignore combo/encoder events in the waterfall (they read outside the ASCII tables).
+* **6.3 Slave Status:** Fixed the GUI icon being overdrawn by the Caps Lock icon and removed a duplicate Shift write.
+* **6.4 Config Cleanup:** Removed `SPLIT_TRANSPORT_MIRROR`, `RGB_MATRIX_KEYPRESSES`, `RGB_MATRIX_FRAMEBUFFER_EFFECTS` and `BACKLIGHT_BREATHING`; nothing uses them (layer/LED/mod sync has its own `SPLIT_*_ENABLE` flags).
+* **6.5 Shader:** Replaced the per-call 64-bit multiply with an exact 32-bit one and dropped redundant split-range checks.
+* **6.6 Housekeeping:** One timer read per loop, fade loop limited to the local half and skipped entirely while no key is glowing.
+* **6.7 Adjust Highlight:** Replaced the per-LED row/col lookup tables with a single F-key bitmask built at startup.
+* **6.8 Idle Waterfall:** Master OLED task returns immediately while the screen is blank.
+* **6.9 Effect Trim:** Removed the built-in RGB animations from `keyboard.json` (~4.6KB flash); Pastel Pulse is now the default mode and stale saved modes fall back to it.
+* **6.10 Master Detection:** Enabled `SPLIT_WATCHDOG_ENABLE` so halves that boot as slave while the PC is off keep retrying until the USB half becomes master. The slave OLED and LEDs stay dark until a master is found.
+* **6.11 Power Key:** Replaced the `TD(1)` tap dance with `PWR_HOLD`: hold 1s to sleep, or hold 1s on a non-base layer to power off. Both halves show a right-to-left progress sweep (dark for sleep, red for power off), synced via a split RPC.
+* **6.12 Media Key:** Replaced the `TD(0)` tap dance with plain per-layer keys: Play/Pause on base, Previous on Lower (left thumb), Next on Raise (right thumb). Tap dance is now disabled.
+* **6.13 Vial Defaults:** Vial resets its EEPROM on the first boot of every new build (random `BUILD_ID`), which silently wiped the default combo. Defaults are now re-applied whenever that reset happens.
+* **6.14 Handedness:** CI's `MASTER=LEFT/RIGHT` was ignored by QMK (USB half was always "left"). Builds now use `SIDE=left/right` to set `EE_HANDS`, so USB works on either half. CI targets `sparkfun_pm2040` directly instead of the deprecated `promicro_rp2040` alias.
+* **6.15 Unused Features:** Disabled Caps Word, Layer Lock and Repeat Key that Vial enables by default.
+* **6.16 Slave HUD:** Redrew the status icons as an alien script: a reticle ring whose inner strokes flow down/up/converge per layer (with index pips), one glyph per modifier and a seal for Caps Lock. Solid = active, checker-dithered = dormant.
+* **6.17 Real Waterfall Output:** The waterfall now shows what Windows (Spanish layout) prints for each keycode, honouring Shift, AltGr, Caps Lock and combo outputs. A trimmed font (`font_es.c`, ASCII plus ñ Ñ ç Ç º ª · € ¬ ¡ ¿ ´ ¨ ↵) replaces the stock one.
+* **6.18 Link Status:** If the master loses contact with the other half after they have connected once, its thumb row pulses red until the link recovers.
+* **6.19 Light Controls:** On Adjust, the right-half top row (Y/U/I/O/P) raises and the home row (H/J/K/L/Ñ) lowers effect/brightness/hue/speed/saturation. Each key is lit with what it would produce, drawn in the style of the effect it leads to.
+* **6.20 Parametric Modes:** Pastel Pulse is now one shader with feature flags (drift, layers, spread, x, boost, breathe). Added Rainbow, Expand, Sideways, Breath and Heat as ~50-byte wrappers alongside Pastel Pulse and Solid Color. The Adjust previews reuse the same per-LED function, so they are exact for every mode. Rainbow, Sideways, Breath and Heat use Vial's standard Cycle All, Cycle Left Right, Breathing and Typing Heatmap IDs so Vial names them.

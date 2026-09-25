@@ -24,6 +24,9 @@
 //
 // I've found this helps with some ProMicros where the slave does not boot
 #define SPLIT_USB_DETECT
+// If the PC is off at power-up both halves boot as slave; a slave that never
+// hears from a master reboots and retries, so the USB half becomes master once the PC is on
+#define SPLIT_WATCHDOG_ENABLE
 
 #define RGB_DISABLE_WHEN_USB_SUSPENDED     // turn off effects when suspended
 #define RGB_MATRIX_MAXIMUM_BRIGHTNESS 100  // limits maximum brightness of LEDs (max 255). Higher may cause the controller to crash.

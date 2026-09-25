@@ -74,6 +74,7 @@ void via_init_kb(void) {
 
 #ifdef SPLIT_KEYBOARD
 #    include "quantum/split_common/transactions.h"
+#    include "quantum/split_common/split_util.h"
 #endif
 
 #ifdef RGB_MATRIX_ENABLE
@@ -295,6 +296,11 @@ void keyboard_post_init_user(void) {
 #ifdef OLED_ENABLE
 bool oled_task_user(void) {
     if (!is_keyboard_master()) {
+        // No master yet (PC off), stay dark while the split watchdog retries
+        if (!split_watchdog_check()) {
+            oled_off();
+            return false;
+        }
         if (render_status_slave()) {
             oled_on();
         }
@@ -343,6 +349,17 @@ bool oled_task_user(void) {
     return false;
 }
 #endif
+
+bool rgb_matrix_indicators_advanced_user(uint8_t led_min, uint8_t led_max) {
+    // No master yet (PC off), keep the LEDs dark while the split watchdog retries
+    if (!is_keyboard_master() && !split_watchdog_check()) {
+        for (uint8_t i = led_min; i < led_max; i++) {
+            rgb_matrix_set_color(i, 0, 0, 0);
+        }
+        return false;
+    }
+    return false;
+}
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 #ifdef OLED_ENABLE
